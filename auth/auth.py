@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, WebSocketException, status
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
 
 router = APIRouter()
 SECRET_KEY = "super_secure_quantum_key"
@@ -36,6 +36,27 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+
+# async def verify_token(token: str):
+#     try:
+#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+#         username = payload.get("sub")
+#         if username is None:
+#             raise ValueError("Invalid token payload")
+#         return username
+#     except JWTError:
+#         raise ValueError("Invalid token")
+
+async def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+        return username
+    except JWTError as e:
+        print("JWT verification failed:", str(e))
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest):

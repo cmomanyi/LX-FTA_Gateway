@@ -33,7 +33,7 @@ const Dashboard = () => {
         <Layout>
         <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-green-100 to-blue-200">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Welcome to IoE Gateway</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">LX-FTA Sensor Dashboard</h2>
 
                 {user ? (
                     <>

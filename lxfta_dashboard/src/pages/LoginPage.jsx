@@ -28,7 +28,7 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 to-purple-300">
             <div className="bg-white shadow-2xl rounded-xl p-10 w-full max-w-md">
-                <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">IoE Gateway Login</h1>
+                <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">LX-FTA Gateway Login</h1>
                 <form onSubmit={handleLogin}>
                     <div className="mb-5">
                         <label className="block mb-2 text-gray-600 font-medium">Username</label>
