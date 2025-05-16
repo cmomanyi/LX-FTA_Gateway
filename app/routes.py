@@ -9,6 +9,9 @@ from app.websocket_routes import router as websocket_router
 from app.firmware_simulation import router as firmware_router
 from app.attack_simulation_dashboard import router as dashboard_router
 from app.shap_model import router as shap_model
+from app.admin_helper import router as admin_helper
+from app.token_logger import TokenLoggerMiddleware
+from app.attack_router import router as attack_router
 
 app = FastAPI(title="Secure Gateway API")
 # CORS settings for frontend (e.g. React dev server)
@@ -27,6 +30,12 @@ app.include_router(websocket_router)
 app.include_router(firmware_router)
 
 app.include_router(dashboard_router)
+
+app.include_router(admin_helper)
+
+app.add_middleware(TokenLoggerMiddleware)
+
+app.include_router(attack_router)
 
 # app.include_router(shap_model)
 
@@ -62,6 +71,7 @@ SENSOR_ATTACKS = {
     "atmospheric": ["sensor_drift", "wind_spike_injection", "humidity_desync"],
     "threat": ["unauthorized_access", "jamming", "anomaly_score_spike", "radiation_leak"]
 }
+
 
 @app.get("/api/soil", response_model=list[SoilData])
 def get_soil_data():
@@ -159,6 +169,7 @@ async def log_anomaly(request: Request):
 def get_anomalies():
     return anomaly_logs  # Replace with file/db load if needed
 
+
 def generate_fake_log(sensor_type: str, sensor_num: int):
     return {
         "time": datetime.utcnow().isoformat(),
@@ -167,6 +178,7 @@ def generate_fake_log(sensor_type: str, sensor_num: int):
         "status": random.choice(["secure", "blocked"])
     }
 
+
 @app.get("/api/audit")
 async def get_audit_logs():
     logs = []
@@ -174,6 +186,8 @@ async def get_audit_logs():
         for i in range(1, 4):  # 3 logs per type
             logs.append(generate_fake_log(sensor_type, i))
     return logs
+
+
 @app.get("/")
 def read_root():
     return {"message": "✅ Secure Gateway API is running."}

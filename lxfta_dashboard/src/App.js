@@ -9,16 +9,18 @@ import SensorAnomalyDashboard from "./pages/SensorAnomalyDashboard";
 import SensorSecurityDashboard from "./pages/SensorSecurityDashboard";
 import FirmwareDashboard from "./pages/FirmwareDashboard";
 import AttackSimulationDashboard from "./pages/AttackSimulationDashboard";
-import ShapAttackDashboard from "./pages/ShapAttackDashboard"; // create this component for post-login redirect
+import ShapAttackDashboard from "./pages/ShapAttackDashboard";
+import Unauthorized from "./pages/Unauthorized"; // create this component for post-login redirect
 
 function App() {
   return (
       <Router>
           <Routes>
-              <Route path="/" element={<LoginPage/>}/>
+              <Route path="/login" element={<LoginPage/>}/>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/genericdashboard" element={<GenericDashboard />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/websocketdashboard" element={<SensorDashboardWebSocket />} />
               <Route path="/viewanomalies" element={<SensorAnomalyDashboard />} />
               <Route path="/securitydashboard" element={<SensorSecurityDashboard/>} />
