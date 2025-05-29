@@ -13,8 +13,9 @@ import { initialUsers } from "../data/mockUsers";
 import { sendAccountCreatedEmail } from "../utils/emailService";
 
 const AdminDashboard = () => {
+    const [activeTab, setActiveTab] = useState("users");
     const [users, setUsers] = useState(initialUsers);
-    const [isAuthorized, setIsAuthorized] = useState(null); // null = loading, false = denied, true = allowed
+    const [isAuthorized, setIsAuthorized] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -58,6 +59,45 @@ const AdminDashboard = () => {
         toast.info(`${changedUser.name}'s role changed to ${newRole}`);
     };
 
+    const renderContent = () => {
+        switch (activeTab) {
+            case "users":
+                return (
+                    <>
+                        <UserForm onAddUser={handleAddUser} />
+                        <UserTable
+                            users={users}
+                            onDelete={handleDeleteUser}
+                            onChangeRole={handleChangeRole}
+                        />
+                    </>
+                );
+            case "anomalies":
+                return (
+                    <section className="bg-white p-4 rounded shadow">
+                        <h2 className="text-xl font-semibold mb-2">📋 Anomaly Detection Logs</h2>
+                        <AnomalyLogViewer />
+                    </section>
+                );
+            case "policy":
+                return (
+                    <section className="bg-white p-4 rounded shadow">
+                        <h2 className="text-xl font-semibold mb-2">🛡️ Policy-as-Code Editor</h2>
+                        <PolicyEditor />
+                    </section>
+                );
+            case "firmware":
+                return (
+                    <section className="bg-white p-4 rounded shadow">
+                        <h2 className="text-xl font-semibold mb-2">📦 OTA Firmware Simulation</h2>
+                        <FirmwareSimulator />
+                    </section>
+                );
+            default:
+                return null;
+        }
+    };
+
     if (isAuthorized === null) {
         return (
             <Layout>
@@ -78,33 +118,34 @@ const AdminDashboard = () => {
 
     return (
         <Layout>
-            <div className="p-6 max-w-6xl mx-auto space-y-8">
-                <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
+            <div className="flex min-h-screen">
+                {/* Sidebar */}
+                <aside className="w-64 bg-gray-100 border-r p-4 space-y-4">
+                    <h2 className="text-xl font-bold mb-4">🛠️ Admin Panel</h2>
+                    <nav className="flex flex-col gap-2">
+                        <button onClick={() => setActiveTab("users")} className={`p-2 rounded ${activeTab === "users" ? "bg-blue-500 text-white" : "hover:bg-blue-100"}`}>
+                            👤 Manage Users
+                        </button>
+                        <button onClick={() => setActiveTab("anomalies")} className={`p-2 rounded ${activeTab === "anomalies" ? "bg-blue-500 text-white" : "hover:bg-blue-100"}`}>
+                            📊 Anomaly Detection
+                        </button>
+                        <button onClick={() => setActiveTab("policy")} className={`p-2 rounded ${activeTab === "policy" ? "bg-blue-500 text-white" : "hover:bg-blue-100"}`}>
+                            🛡️ Policy Editor
+                        </button>
+                        <button onClick={() => setActiveTab("firmware")} className={`p-2 rounded ${activeTab === "firmware" ? "bg-blue-500 text-white" : "hover:bg-blue-100"}`}>
+                            📦 Firmware Simulator
+                        </button>
+                    </nav>
+                </aside>
 
-                <UserForm onAddUser={handleAddUser} />
-                <UserTable
-                    users={users}
-                    onDelete={handleDeleteUser}
-                    onChangeRole={handleChangeRole}
-                />
-
-                <section className="bg-white shadow p-4 rounded-lg">
-                    <h2 className="text-xl font-semibold mb-2">📋 Anomaly Detection Logs</h2>
-                    <AnomalyLogViewer />
-                </section>
-
-                <section className="bg-white shadow p-4 rounded-lg">
-                    <h2 className="text-xl font-semibold mb-2">🛡️ Policy-as-Code Editor</h2>
-                    <PolicyEditor />
-                </section>
-
-                <section className="bg-white shadow p-4 rounded-lg">
-                    <h2 className="text-xl font-semibold mb-2">📦 OTA Firmware Simulation</h2>
-                    <FirmwareSimulator />
-                </section>
-
-                <ToastContainer position="bottom-right" autoClose={3000} />
+                {/* Main content area */}
+                <main className="flex-1 p-6 space-y-6">
+                    <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
+                    {renderContent()}
+                </main>
             </div>
+
+            <ToastContainer position="bottom-right" autoClose={3000} />
         </Layout>
     );
 };

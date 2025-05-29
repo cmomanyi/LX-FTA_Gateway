@@ -1,30 +1,36 @@
 from datetime import datetime
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request,WebSocket, WebSocketDisconnect
 import random
+
+from app import attack_router, shap_model
 from app.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 from auth.auth import router as auth_router
-from fastapi.middleware.cors import CORSMiddleware
+
 from app.websocket_routes import router as websocket_router
 from app.firmware_simulation import router as firmware_router
 from app.attack_simulation_dashboard import router as dashboard_router
-from app.shap_model import router as shap_model
 from app.admin_helper import router as admin_helper
 from app.token_logger import TokenLoggerMiddleware
-from app.attack_router import router as attack_router
+from threats.threat_route import  router as threat_router
+# from threats.alerts import router as alerts_router
 
 app = FastAPI(title="Secure Gateway API")
 # CORS settings for frontend (e.g. React dev server)
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000"],  # Your frontend port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 # Register authentication routes
 app.include_router(auth_router)
+# Anomalie dashboard
 app.include_router(websocket_router)
 
 app.include_router(firmware_router)
@@ -35,11 +41,18 @@ app.include_router(admin_helper)
 
 app.add_middleware(TokenLoggerMiddleware)
 
-app.include_router(attack_router)
+# app.include_router(attack_router)
 
+# app.include_router(attack_router)
+#
 # app.include_router(shap_model)
+app.include_router(threat_router)
+# app.include_router(alerts_router)
 
 anomaly_logs = []
+
+# connected_clients = []
+
 
 sensor_status = {
     "soil": ["active", "sleeping", "compromised"],
@@ -187,7 +200,19 @@ async def get_audit_logs():
             logs.append(generate_fake_log(sensor_type, i))
     return logs
 
+# @app.websocket("/ws/alerts")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     connected_clients.append(websocket)
+#     try:
+#         while True:
+#             await websocket.receive_text()  # keep connection alive
+#     except WebSocketDisconnect:
+#         connected_clients.remove(websocket)
 
+# async def broadcast_alert(alert_data):
+#     for client in connected_clients:
+#         await client.send_json(alert_data)
 @app.get("/")
 def read_root():
     return {"message": "✅ Secure Gateway API is running."}

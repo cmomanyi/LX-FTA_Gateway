@@ -1,8 +1,6 @@
 import random
 
 
-
-
 def generate_sensor_data(sensor_type: str, user: str):
     sensor_id = f"{sensor_type}-{random.randint(1000, 9999)}"
 
@@ -55,5 +53,3 @@ def generate_sensor_data(sensor_type: str, user: str):
         }
 
     return {"error": "Invalid sensor type"}
-
-

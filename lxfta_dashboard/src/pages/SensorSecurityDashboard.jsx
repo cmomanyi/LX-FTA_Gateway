@@ -1,17 +1,42 @@
+
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
+import { Line, Doughnut } from "react-chartjs-2";
+import {
+    Chart as ChartJS,
+    LineElement,
+    PointElement,
+    CategoryScale,
+    LinearScale,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement
+} from "chart.js";
+
+ChartJS.register(
+    LineElement,
+    PointElement,
+    CategoryScale,
+    LinearScale,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement
+);
 
 const SensorSecurityDashboard = () => {
     const [auditTrail, setAuditTrail] = useState([]);
     const [alerts, setAlerts] = useState([]);
     const [selectedAttack, setSelectedAttack] = useState("spoofing");
+    const [severityFilter, setSeverityFilter] = useState("all");
 
     useEffect(() => {
         const fetchAuditTrail = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/audit");
+                const res = await fetch("http://localhost:8000/api/logs");
                 const data = await res.json();
-                setAuditTrail(data);
+                setAuditTrail(data.logs || []);
             } catch (err) {
                 console.error("Failed to load audit logs", err);
             }
@@ -20,13 +45,12 @@ const SensorSecurityDashboard = () => {
         fetchAuditTrail();
         const interval = setInterval(fetchAuditTrail, 10000);
 
-        const token = localStorage.getItem("token");
-        const ws = new WebSocket(`ws://localhost:8000/ws/alerts?token=${token}`);
+        const ws = new WebSocket("ws://localhost:8000/ws/alerts");
 
         ws.onmessage = (event) => {
             const alert = JSON.parse(event.data);
-            setAlerts((prev) => [alert, ...prev].slice(0, 20));
-            setAuditTrail((prev) => [alert, ...prev].slice(0, 100));
+            setAlerts((prev) => [alert, ...prev].slice(0, 50));
+            setAuditTrail((prev) => [alert, ...prev].slice(0, 200));
         };
 
         return () => {
@@ -37,13 +61,49 @@ const SensorSecurityDashboard = () => {
 
     const handleTrigger = async () => {
         try {
-            const res = await fetch(`http://localhost:8000/trigger?attack=${selectedAttack}`);
+            const res = await fetch(`http://localhost:8000/trigger/${selectedAttack}`);
             const data = await res.json();
-            alert(data.status);
+            alert(data.status || "Attack simulated");
         } catch (err) {
             console.error("Failed to trigger attacks", err);
         }
     };
+
+    const chartData = {
+        labels: alerts.slice(0, 10).map(a => new Date(a.timestamp).toLocaleTimeString()),
+        datasets: [
+            {
+                label: "Alerts (last 10)",
+                data: alerts.slice(0, 10).map((_, idx) => idx + 1),
+                fill: false,
+                borderColor: "rgb(255, 99, 132)",
+                tension: 0.3,
+            },
+        ],
+    };
+
+    const attackTypeCounts = alerts.reduce((acc, cur) => {
+        acc[cur.attack_type] = (acc[cur.attack_type] || 0) + 1;
+        return acc;
+    }, {});
+
+    const donutChartData = {
+        labels: Object.keys(attackTypeCounts),
+        datasets: [
+            {
+                data: Object.values(attackTypeCounts),
+                backgroundColor: [
+                    "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1",
+                    "#8B5CF6", "#EC4899", "#F97316", "#14B8A6", "#84CC16"
+                ],
+                borderWidth: 1
+            }
+        ]
+    };
+
+    const filteredAuditTrail = severityFilter === "all"
+        ? auditTrail
+        : auditTrail.filter(log => log.severity?.toLowerCase() === severityFilter);
 
     return (
         <Layout>
@@ -73,35 +133,62 @@ const SensorSecurityDashboard = () => {
                     </div>
                 </div>
 
-                <h2 className="text-lg font-medium mb-2">Live Alerts</h2>
-                <ul className="bg-white rounded p-4 shadow space-y-2">
-                    {alerts.map((alert, idx) => (
-                        <li key={idx} className="text-sm text-red-600">
-                            {alert.timestamp} - {alert.sensor} - {alert.attack_type}
-                        </li>
-                    ))}
-                </ul>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div className="bg-white p-4 rounded shadow">
+                        <h2 className="text-lg font-semibold mb-2">📈 Live Alert Metrics</h2>
+                        <Line data={chartData} />
+                    </div>
 
-                <h2 className="text-lg font-medium mt-6 mb-2">Audit Trail</h2>
+                    <div className="bg-white p-4 rounded shadow">
+                        <h2 className="text-lg font-semibold mb-2">🔎 Attack Type Distribution</h2>
+                        <Doughnut data={donutChartData} />
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-medium">Audit Trail</h2>
+                    <select
+                        value={severityFilter}
+                        onChange={(e) => setSeverityFilter(e.target.value)}
+                        className="border px-2 py-1 rounded"
+                    >
+                        <option value="all">All Severities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+
                 <div className="overflow-auto bg-white p-4 rounded shadow">
-                    <table className="min-w-full table-auto">
+                    <table className="min-w-full table-auto text-sm">
                         <thead>
                         <tr>
                             <th className="px-4 py-2">Time</th>
                             <th className="px-4 py-2">Sensor</th>
                             <th className="px-4 py-2">Attack</th>
-                            <th className="px-4 py-2">Status</th>
-                            <th className="px-4 py-2">Target</th>
+                            <th className="px-4 py-2">Message</th>
+                            <th className="px-4 py-2">Severity</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {auditTrail.map((log, idx) => (
-                            <tr key={idx} className="border-t">
-                                <td className="px-4 py-2">{log.timestamp}</td>
-                                <td className="px-4 py-2">{log.sensor}</td>
+                        {filteredAuditTrail.map((log, idx) => (
+                            <tr
+                                key={idx}
+                                className={
+                                    log.severity === "High"
+                                        ? "bg-red-100"
+                                        : log.severity === "Medium"
+                                            ? "bg-yellow-100"
+                                            : log.severity === "Low"
+                                                ? "bg-green-100"
+                                                : ""
+                                }
+                            >
+                                <td className="px-4 py-2">{new Date(log.timestamp).toLocaleString()}</td>
+                                <td className="px-4 py-2">{log.sensor_id || log.sensor}</td>
                                 <td className="px-4 py-2">{log.attack_type}</td>
-                                <td className="px-4 py-2">{log.status}</td>
-                                <td className="px-4 py-2">{log.target}</td>
+                                <td className="px-4 py-2">{log.message || log.status}</td>
+                                <td className="px-4 py-2">{log.severity}</td>
                             </tr>
                         ))}
                         </tbody>

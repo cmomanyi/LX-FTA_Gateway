@@ -10,7 +10,9 @@ import SensorSecurityDashboard from "./pages/SensorSecurityDashboard";
 import FirmwareDashboard from "./pages/FirmwareDashboard";
 import AttackSimulationDashboard from "./pages/AttackSimulationDashboard";
 import ShapAttackDashboard from "./pages/ShapAttackDashboard";
-import Unauthorized from "./pages/Unauthorized"; // create this component for post-login redirect
+import Unauthorized from "./pages/Unauthorized";
+import ThreatDashboard from "./pages/ThreatDashboard";
+import AttackAuditDashboard from "./pages/AttackAuditDashboard"; // create this component for post-login redirect
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
               <Route path="/firmwaredashboard" element={<FirmwareDashboard />} />
               <Route path="/attacksimulationdashboard" element={<AttackSimulationDashboard />} />
               <Route path="/Shapdashboard" element={<ShapAttackDashboard />} />
+              <Route path="/attackV2" element={<ThreatDashboard />} />
+              <Route path ="/attacksimulate" element={<AttackAuditDashboard/>}/>
           </Routes>
       </Router>
 
