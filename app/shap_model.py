@@ -12,8 +12,6 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
-
-
 # Sample training data to simulate a pre-trained model
 np.random.seed(42)
 train_data = pd.DataFrame({
@@ -29,6 +27,7 @@ model = IsolationForest(contamination=0.1)
 model.fit(train_data)
 explainer = shap.Explainer(model.predict, train_data)
 
+
 # Request schema
 class SensorInput(BaseModel):
     temperature: float
@@ -36,6 +35,7 @@ class SensorInput(BaseModel):
     ph: float
     battery_level: float
     frequency: float
+
 
 @router.post("/explain")
 def explain_decision(input: SensorInput):

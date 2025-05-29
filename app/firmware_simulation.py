@@ -1,88 +1,104 @@
-from fastapi import UploadFile, Form, File, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi import  APIRouter, UploadFile, Form, HTTPException
+from fastapi.responses import JSONResponse
+from typing import Dict
 from datetime import datetime
-import hashlib
-import random
 
 router = APIRouter()
+firmware_registry = {}
+# firmware_registry: Dict[str, Dict] = {}
+firmware_audit_log = []
 
-# Mock trusted issuers and known hashes
-trusted_issuers = ["Trusted_CA_01", "Trusted_CA_02"]
-known_hashes = ["abc123", "def456", "ghi789"]
+# Sensor Types and IDs
+SENSOR_TYPES = ["soil", "water", "atmospheric", "plant", "threat"]
+SENSOR_IDS = ["1", "2", "3", "4", "5"]
 
-# Simulated audit log (in-memory)
-firmware_log = []
+# Auto-initialize known sensors
+for stype in SENSOR_TYPES:
+    for sid in SENSOR_IDS:
+        key = f"{stype}_{sid}"
+        firmware_registry[key] = {
+            "current": "v1.0.0",
+            "last": "none",
+            "rollback_protection": True
+        }
+
+
+def verify_signature(signature: str) -> bool:
+    return signature != "invalid_signature_xx"
+
+
+@router.get("/api/firmware/versions/{sensor_id}")
+async def get_firmware_versions(sensor_id: str):
+    if sensor_id not in firmware_registry:
+        # Auto-initialize unknown sensor IDs
+        firmware_registry[sensor_id] = {
+            "current": "v1.0.0",
+            "last": "none",
+            "rollback_protection": True
+        }
+    return firmware_registry[sensor_id]
 
 
 @router.post("/api/firmware/upload")
-async def simulate_firmware_upload(
-        file: UploadFile = File(...),
+async def upload_firmware(
+        file: UploadFile,
+        sensor_id: str = Form(...),
         firmwareVersion: str = Form(...),
         issuerId: str = Form(...),
-        targetDevice: str = Form(...),
         deploymentDate: str = Form(...),
         attemptDowngrade: bool = Form(False)
 ):
-    simulated_hash = random.choice(known_hashes + ["tampered123"])
-    is_known_hash = simulated_hash in known_hashes
-    is_trusted_issuer = issuerId in trusted_issuers
-    current_version = "v3.0.5"
-    downgrade_attempted = attemptDowngrade and firmwareVersion < current_version
-
-    if downgrade_attempted:
-        status_msg = "🚫 Deployment blocked. Rollback protection activated."
-        status = "Rejected"
-    elif not is_trusted_issuer:
-        status_msg = "❌ Firmware rejected: Unknown issuer"
-        status = "Rejected"
-    elif not is_known_hash:
-        status_msg = "⚠️ Firmware tampered: Hash mismatch"
-        status = "Rejected"
-    else:
-        status_msg = "✅ Firmware verified and accepted"
-        status = "Verified"
-
-    audit_hash = hashlib.sha256(
-        f"{firmwareVersion}{issuerId}{datetime.utcnow()}".encode()
-    ).hexdigest()
-
     log_entry = {
-        "event": "Firmware Upload",
+        "sensor_id": sensor_id,
         "version": firmwareVersion,
         "issuer": issuerId,
-        "status": status,
         "timestamp": datetime.utcnow().isoformat(),
-        "audit_hash": audit_hash,
-        "hash": simulated_hash,
-        "target_device": targetDevice,
-        "deployment_date": deploymentDate
+        "status": "",
+        "details": {
+            "deploymentDate": deploymentDate,
+            "filename": file.filename
+        }
     }
 
-    firmware_log.append(log_entry)
+    entry = firmware_registry.get(sensor_id, {
+        "current": None,
+        "last": None,
+        "rollback_protection": True
+    })
 
-    return JSONResponse(content={**log_entry, "message": status_msg})
+    if not verify_signature(file.filename):
+        log_entry["status"] = "Rejected - Invalid Signature"
+        firmware_audit_log.append(log_entry)
+        return JSONResponse(status_code=400,
+                            content={"status": "Rejected", "message": "🔴 Firmware Rejected – Signature Invalid",
+                                     "blocked": True})
 
+    if entry["current"] and firmwareVersion < entry["current"]:
+        if entry.get("rollback_protection", True) and not attemptDowngrade:
+            log_entry["status"] = "Blocked - Downgrade Not Allowed"
+            firmware_audit_log.append(log_entry)
+            return JSONResponse(status_code=400, content={"status": "Downgrade Blocked",
+                                                          "message": "❌ Downgrade blocked by rollback protection",
+                                                          "blocked": True})
 
-@router.get("/api/sample-firmware")
-def download_sample_firmware():
-    content = (
-        "# Mock Firmware Binary File\n"
-        "# Firmware Version: v3.0.5\n"
-        "# Target Device: soil_sensor_alpha\n"
-        "# Issuer: Trusted_CA_01\n"
-        "# Payload: Simulated binary block\n\n"
-        "0000111122223333444455556666777788889999AAAAFFFFEEEEDDDDCCCCBBBB0000"
-    )
-    return Response(
-        content=content,
-        media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": "attachment; filename=mock_firmware_v3.0.5.bin"
-        }
-    )
+    firmware_registry[sensor_id] = {
+        "current": firmwareVersion,
+        "last": entry["current"] or "none",
+        "rollback_protection": entry["rollback_protection"]
+    }
+
+    log_entry["status"] = "Verified"
+    firmware_audit_log.append(log_entry)
+
+    return {
+        "status": "✅ Firmware Uploaded",
+        "message": f"Firmware {firmwareVersion} uploaded successfully to {sensor_id}.",
+        "blocked": False
+    }
 
 
 @router.get("/api/firmware/log")
-def get_firmware_log():
-    return firmware_log[::-1]
+def get_firmware_logs():
+    return firmware_audit_log
+
+

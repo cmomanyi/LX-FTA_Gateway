@@ -1,0 +1,1 @@
+{"timestamp": "2025-05-16T19:26:09.428834Z", "attack_type": "Spoofing", "message": "ECC Signature mismatch", "status": "Blocked", "severity": "High", "target": "sensor", "sensor_id": "soil_01"}

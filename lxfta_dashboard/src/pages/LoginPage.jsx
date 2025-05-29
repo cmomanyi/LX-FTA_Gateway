@@ -1,69 +1,93 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-const LoginPage = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+const Login = () => {
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setError('');
+        setLoading(true);
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/login', {
-                username,
-                password,
+            const res = await fetch("http://localhost:8000/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password }),
             });
 
-            localStorage.setItem('token', response.data.access_token);
-            navigate('/dashboard');
+            const data = await res.json();
+
+            if (!res.ok) {
+                toast.error(data.detail || "Login failed");
+                setLoading(false);
+                return;
+            }
+
+            // Save token and decode role (extracted from backend's known users for simplicity)
+            localStorage.setItem("token", data.access_token);
+
+            // Manual role assignment based on username (can be improved with jwt-decode)
+            let role = "guest";
+            if (username === "admin") role = "admin";
+            else if (username === "analyst") role = "analyst";
+            else if (username === "sensor") role = "sensor";
+
+            localStorage.setItem("role", role);
+
+            toast.success("Login successful");
+
+            // Redirect based on role
+            if (role === "admin") {
+                navigate("/admin");
+            } else {
+                navigate("/dashboard"); // or another route
+            }
         } catch (err) {
-            setError(err.response?.data?.detail || 'Login failed');
+            toast.error("Network error");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 to-purple-300">
-            <div className="bg-white shadow-2xl rounded-xl p-10 w-full max-w-md">
-                <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">LX-FTA Gateway Login</h1>
-                <form onSubmit={handleLogin}>
-                    <div className="mb-5">
-                        <label className="block mb-2 text-gray-600 font-medium">Username</label>
-                        <input
-                            type="text"
-                            className="w-full border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                        />
-                    </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="bg-white p-8 rounded shadow-lg w-full max-w-sm space-y-4">
+                <h2 className="text-xl font-bold text-center">Admin Login</h2>
 
-                    <div className="mb-6">
-                        <label className="block mb-2 text-gray-600 font-medium">Password</label>
-                        <input
-                            type="password"
-                            className="w-full border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Username"
+                        className="w-full p-2 border rounded"
+                        required
+                    />
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full p-2 border rounded"
+                        required
+                    />
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-md transition duration-300"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded"
+                        disabled={loading}
                     >
-                        Login
+                        {loading ? "Logging in..." : "Login"}
                     </button>
                 </form>
+                <ToastContainer position="bottom-right" autoClose={3000} />
             </div>
         </div>
     );
 };
 
-export default LoginPage;
+export default Login;
