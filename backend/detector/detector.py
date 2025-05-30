@@ -1,7 +1,6 @@
-from models.models import SensorData, AnomalyLog
+from backend.models.models import SensorData, AnomalyLog
 from utils.utils import get_timestamp
-from database.database import used_nonces, anomaly_logs
-from database.database import save_to_disk
+from database.database import used_nonces
 
 AUTHORIZED_SENSORS = {"soil_01", "plant_02", "threat_01"}
 

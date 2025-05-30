@@ -1,6 +1,6 @@
 from typing import List
 import json
-from models.models import AnomalyLog
+from backend.models.models import AnomalyLog
 
 anomaly_logs: List[AnomalyLog] = []
 used_nonces = set()
