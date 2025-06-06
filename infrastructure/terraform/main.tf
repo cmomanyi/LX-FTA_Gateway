@@ -2,9 +2,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+resource "aws_route53_zone" "selected" {
+  name = var.hosted_zone_name
+}
+
 resource "aws_s3_bucket" "frontend_bucket" {
-  bucket         = var.bucket_name
-  force_destroy  = true
+  bucket        = var.bucket_name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_website_configuration" "frontend" {
@@ -25,10 +29,6 @@ resource "aws_acm_certificate" "ssl_cert" {
   }
 }
 
-resource "aws_route53_zone" "selected" {
-  name = var.hosted_zone_name
-}
-
 resource "aws_route53_record" "ssl_validation" {
   for_each = {
     for dvo in aws_acm_certificate.ssl_cert.domain_validation_options : dvo.domain_name => {
@@ -37,6 +37,7 @@ resource "aws_route53_record" "ssl_validation" {
       value = dvo.resource_record_value
     }
   }
+
   zone_id = aws_route53_zone.selected.zone_id
   name    = each.value.name
   type    = each.value.type
@@ -46,7 +47,7 @@ resource "aws_route53_record" "ssl_validation" {
 
 resource "aws_acm_certificate_validation" "ssl_cert_validation" {
   certificate_arn         = aws_acm_certificate.ssl_cert.arn
-  validation_record_fqdns = [for record in aws_route53_record.ssl_validation : record.fqdn]
+  validation_record_fqdns = [for r in aws_route53_record.ssl_validation : r.fqdn]
 }
 
 resource "aws_cloudfront_origin_access_control" "frontend_oac" {
@@ -55,41 +56,6 @@ resource "aws_cloudfront_origin_access_control" "frontend_oac" {
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
-}
-
-resource "aws_route53_record" "frontend_alias" {
-  zone_id = aws_route53_zone.selected.zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.frontend_cdn.domain_name
-    zone_id                = aws_cloudfront_distribution.frontend_cdn.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_s3_bucket_policy" "frontend_policy" {
-  bucket = aws_s3_bucket.frontend_bucket.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        },
-        Action = "s3:GetObject",
-        Resource = "${aws_s3_bucket.frontend_bucket.arn}/*",
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.frontend_cdn.arn
-          }
-        }
-      }
-    ]
-  })
 }
 
 resource "aws_cloudfront_distribution" "frontend_cdn" {
@@ -129,4 +95,39 @@ resource "aws_cloudfront_distribution" "frontend_cdn" {
   }
 
   depends_on = [aws_acm_certificate_validation.ssl_cert_validation]
+}
+
+resource "aws_route53_record" "frontend_alias" {
+  zone_id = aws_route53_zone.selected.zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend_cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend_cdn.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_s3_bucket_policy" "frontend_policy" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        },
+        Action = "s3:GetObject",
+        Resource = "${aws_s3_bucket.frontend_bucket.arn}/*",
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend_cdn.arn
+          }
+        }
+      }
+    ]
+  })
 }

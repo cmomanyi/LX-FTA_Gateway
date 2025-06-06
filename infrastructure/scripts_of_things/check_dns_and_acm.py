@@ -6,10 +6,10 @@ import sys
 DOMAIN = "lx-gateway.tech"
 SUBDOMAIN = "portal.lx-gateway.tech"
 EXPECTED_NS = {
-    "ns-799.awsdns-35.net.",
-    "ns-98.awsdns-12.com.",
-    "ns-1826.awsdns-36.co.uk.",
-    "ns-1482.awsdns-57.org.",
+    "ns-1670.awsdns-16.co.uk",
+    "ns-961.awsdns-56.net.",
+    "ns-359.awsdns-44.com.",
+    "ns-1413.awsdns-48.org.",
 }
 REGION = "us-east-1"
 # Replace this with your actual ACM Certificate ARN
