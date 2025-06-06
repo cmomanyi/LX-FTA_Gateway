@@ -1,6 +1,6 @@
 # Project: LX-FTA Gateway – AWS Static Hosting with HTTPS
 
-This project deploys a secure frontend for the **LX-FTA Gateway** using AWS services like S3, Route 53, ACM, and CloudFront. The infrastructure is managed via Terraform.
+This project deploys a secure frontend for the **LX-FTA Gateway** using AWS services like S3, Route 53, ACM, CloudFront, ECR, and ECS. The infrastructure is managed via Terraform.
 
 ---
 
@@ -20,7 +20,7 @@ lx-fta-gateway/
 │   └── vite.config.js
 │
 ├── infrastructure/
-│   ├── main.tf               # Terraform Infrastructure (S3, CloudFront, Route53, ACM)
+│   ├── main.tf               # Terraform Infrastructure (S3, CloudFront, Route53, ACM, ECR, ECS)
 │   ├── variables.tf          # Terraform variables
 │   ├── outputs.tf            # Outputs like distribution domain and S3 URL
 │   └── terraform.tfvars      # Actual values for variables
@@ -39,11 +39,12 @@ lx-fta-gateway/
 ---
 
 ## 🚀 Deployment Workflow (CI/CD)
-This uses GitHub Actions to automate backend Docker builds and frontend deployment to S3 + CloudFront.
+This uses GitHub Actions to automate backend Docker builds and push to ECR, deploy to ECS, and deploy frontend to S3 + CloudFront.
 
 **Workflow: .github/workflows/deploy.yml**
 - On push to `main`:
   - Build Docker image for backend and push to ECR
+  - Deploy backend to ECS
   - Build frontend and sync to S3 bucket
   - Invalidate CloudFront cache
 
@@ -56,13 +57,8 @@ This uses GitHub Actions to automate backend Docker builds and frontend deployme
 - Website configuration: `index.html` as root and fallback
 
 ### ✅ Route 53 DNS
-- Hosted Zone: `lx-gateway.tech`
+- Hosted Zone: `lx-gateway.tech` (Created via Terraform)
 - DNS Record: `portal.lx-gateway.tech` → CloudFront Distribution
-- Name Servers:
-  - ns-799.awsdns-35.net
-  - ns-98.awsdns-12.com
-  - ns-1826.awsdns-36.co.uk
-  - ns-1482.awsdns-57.org
 
 ### ✅ ACM SSL Certificate
 - Issued for `portal.lx-gateway.tech`
@@ -73,6 +69,10 @@ This uses GitHub Actions to automate backend Docker builds and frontend deployme
 - HTTPS proxy for S3 using **Origin Access Control (OAC)**
 - HTTP to HTTPS redirection
 - Global content delivery
+
+### ✅ Amazon ECR + ECS (Backend)
+- Docker image pushed to `lx-fta-backend` ECR repository
+- ECS Fargate service launches backend using the image
 
 ---
 
@@ -98,4 +98,3 @@ terraform apply
 ## 🌍 Output URL
 ```
 https://portal.lx-gateway.tech
-```
