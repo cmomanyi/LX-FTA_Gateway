@@ -4,7 +4,10 @@
 __pycache__/
 infrastructure/terraform/.terraform.lock.hcl
 infrastructure/terraform/.terraform/
-infrastructure/terraform/terraform.tfstate
-infrastructure/terraform/terraform.tfstate.backup
+infrastructure/terraform/frontend/terraform.tfstate
+infrastructure/terraform/frontend/terraform.tfstate.backup
+infrastructure/terraform/backend/.terraform.lock.hcl
+infrastructure/terraform/backend/.terraform/
+
 
 
