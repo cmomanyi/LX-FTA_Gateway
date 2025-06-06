@@ -2,62 +2,56 @@ name: Deploy LX-FTA Gateway
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 env:
   AWS_REGION: us-east-1
   FRONTEND_DIR: frontend
-  S3_BUCKET_NAME: lx-fta-frontend
-  DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-  ECR_REPO: lx-fta-backend
   BACKEND_DIR: backend
+  S3_BUCKET_NAME: lx-fta-frontend
+  ECR_REPO: ${{ secrets.ECR_REPOSITORY }}
+  DISTRIBUTION_ID:  ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} # Replace this with actual CloudFront distribution ID
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 🛑 Checkout Code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install frontend dependencies
-        working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm run build
-
-      - name: Configure AWS credentials
+      - name: ☁️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION  }}
 
-      - name: Sync frontend to S3
-        run: aws s3 sync ${{ env.FRONTEND_DIR }}/build s3://${{ env.S3_BUCKET_NAME }}/ --delete
-
-      - name: Invalidate CloudFront cache
+      - name: 🐳 Login to Amazon ECR
         run: |
-          aws cloudfront create-invalidation \
-            --distribution-id $DISTRIBUTION_ID \
-            --paths "/*"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URL
 
-      - name: Log in to Amazon ECR
-        id: login-ecr
+      - name: 🐳 Build and Push Docker Image (Backend)
         run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE_NAME="${ECR_URL}/${ECR_REPO}:latest"
+          
+          docker build -t $IMAGE_NAME $BACKEND_DIR
+          docker push $IMAGE_NAME
 
-      - name: Build and push Docker image
-        working-directory: ${{ env.BACKEND_DIR }}
+      - name: 🌐 Build Frontend
+        working-directory: ${{ env.FRONTEND_DIR }}
         run: |
-          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:latest"
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
+          npm ci
+          npm run build
+
+      - name: ☁️ Deploy Frontend to S3
+        run: |
+          aws s3 sync $FRONTEND_DIR/build s3://$S3_BUCKET_NAME --delete
+
+      - name: 🚀 Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
