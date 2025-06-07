@@ -1,57 +1,56 @@
-name: Deploy LX-FTA Gateway
+name: Deploy Backend to AWS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 env:
   AWS_REGION: us-east-1
-  FRONTEND_DIR: frontend
-  BACKEND_DIR: backend
-  S3_BUCKET_NAME: lx-fta-frontend
-  ECR_REPO: ${{ secrets.ECR_REPOSITORY }}
-  DISTRIBUTION_ID:  ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} # Replace this with actual CloudFront distribution ID
+  ECR_REPO: lx-fta-backend
+  ECS_CLUSTER: lx-fta-cluster
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🛑 Checkout Code
+      - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: ☁️ Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION  }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: 🐳 Login to Amazon ECR
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URL
+      - name: Generate image tag
+        id: tag
+        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-      - name: 🐳 Build and Push Docker Image (Backend)
+      - name: Login to Amazon ECR
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ECR_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          IMAGE_NAME="${ECR_URL}/${ECR_REPO}:latest"
-          
-          docker build -t $IMAGE_NAME $BACKEND_DIR
-          docker push $IMAGE_NAME
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
 
-      - name: 🌐 Build Frontend
-        working-directory: ${{ env.FRONTEND_DIR }}
+      - name: Build Docker image
         run: |
-          npm ci
-          npm run build
+          docker build -t $ECR_REPO:${{ env.TAG }} backend/
 
-      - name: ☁️ Deploy Frontend to S3
+      - name: Push image to ECR
         run: |
-          aws s3 sync $FRONTEND_DIR/build s3://$S3_BUCKET_NAME --delete
+          docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:${{ env.TAG }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:${{ env.TAG }}
 
-      - name: 🚀 Invalidate CloudFront Cache
+      - name: Set Terraform variables
         run: |
-          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+          echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform/backend
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infrastructure/terraform/backend

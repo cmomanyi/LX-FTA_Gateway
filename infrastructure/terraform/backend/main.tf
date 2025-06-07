@@ -52,16 +52,17 @@ resource "aws_ecs_task_definition" "fastapi_task" {
 
   container_definitions = jsonencode([
     {
-      name  = "fastapi"
-      image = "${aws_ecr_repository.backend_repo.repository_url}:latest"
+      name  = "fastapi",
+      image = "${aws_ecr_repository.backend_repo.repository_url}:${var.image_tag}",
       portMappings = [{
         containerPort = 8000,
         hostPort      = 8000
-      }]
+      }],
+      command = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
       environment = [
         { name = "ENV", value = "production" },
         { name = "JWT_SECRET", value = var.jwt_secret }
-      ]
+      ],
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -69,6 +70,13 @@ resource "aws_ecs_task_definition" "fastapi_task" {
           awslogs-region        = var.aws_region,
           awslogs-stream-prefix = "ecs"
         }
+      },
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        interval    = 30,
+        timeout     = 5,
+        retries     = 3,
+        startPeriod = 10
       }
     }
   ])
@@ -76,8 +84,22 @@ resource "aws_ecs_task_definition" "fastapi_task" {
 
 resource "aws_security_group" "ecs_sg" {
   name        = "ecs-sg"
-  description = "Allow HTTP for ECS"
+  description = "Allow HTTP, HTTPS, and FastAPI ports for ECS"
   vpc_id      = var.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   ingress {
     from_port   = 8000
@@ -113,10 +135,23 @@ resource "aws_lb_target_group" "ecs_tg" {
   }
 }
 
-resource "aws_lb_listener" "ecs_listener" {
+resource "aws_lb_listener" "ecs_listener_http" {
   load_balancer_arn = aws_lb.ecs_alb.arn
   port              = 80
   protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.ecs_tg.arn
+  }
+}
+
+resource "aws_lb_listener" "ecs_listener_https" {
+  load_balancer_arn = aws_lb.ecs_alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.acm_cert_arn
 
   default_action {
     type             = "forward"

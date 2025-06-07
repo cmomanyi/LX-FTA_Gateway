@@ -10,6 +10,6 @@ vpc_id = "vpc-06c04252c22ad0822"
 
 # Subnet IDs to place ECS tasks and ALB into (must be in same VPC)
 subnet_ids = [
-  "subnet-0eb6271aacb9f9714",
-  "subnet-0cbda53eb585fec1d"
+  "subnet-0a089563aaf84e900",
+  "subnet-0a43a8f0719857ca3"
   ]
