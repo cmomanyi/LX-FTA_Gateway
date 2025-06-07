@@ -4,13 +4,13 @@ from fastapi import FastAPI, Request,WebSocket, WebSocketDisconnect
 import random
 
 from app import attack_router, shap_model
-from app.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+from basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 from auth.auth import router as auth_router
 
-from app.websocket_routes import router as websocket_router
-from app.firmware_simulation import router as firmware_router
-from app.attack_simulation_dashboard import router as dashboard_router
-from app.admin_helper import router as admin_helper
+from websocket_routes import router as websocket_router
+from firmware_simulation import router as firmware_router
+from attack_simulation_dashboard import router as dashboard_router
+from admin_helper import router as admin_helper
 from app.token_logger import TokenLoggerMiddleware
 from threats.threat_route import  router as threat_router
 # from threats.alerts import router as alerts_router
@@ -216,3 +216,8 @@ async def get_audit_logs():
 @app.get("/")
 def read_root():
     return {"message": "✅ Secure Gateway API is running."}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
