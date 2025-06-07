@@ -41,8 +41,10 @@ jobs:
           docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
 
-      - name: Set Terraform variable
-        run: echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
+      - name: Set Terraform variables from environment
+        run: |
+          echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
+          echo "TF_VAR_acm_cert_arn=${{ secrets.ACM_CERT_ARN }}" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
