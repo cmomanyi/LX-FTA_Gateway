@@ -30,9 +30,7 @@ jobs:
         run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build Docker image
         run: |
@@ -40,24 +38,19 @@ jobs:
 
       - name: Push image to ECR
         run: |
-          docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:${{ env.TAG }}
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:${{ env.TAG }}
+          docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
 
-      - name: Set Terraform variables
-        run: |
-          echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
+      - name: Set Terraform variable
+        run: echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.7.5
+          terraform_version: 1.6.6
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/backend
-
-      - name: Terraform Plan
-        run: terraform plan
         working-directory: infrastructure/terraform/backend
 
       - name: Terraform Apply
