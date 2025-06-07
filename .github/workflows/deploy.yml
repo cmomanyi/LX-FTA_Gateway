@@ -31,7 +31,7 @@ jobs:
 
       - name: Login to Amazon ECR
         run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin \
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS \
           ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Build Docker image
@@ -47,8 +47,17 @@ jobs:
         run: |
           echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
 
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
       - name: Terraform Init
         run: terraform init
+        working-directory: infrastructure/terraform/backend
+
+      - name: Terraform Plan
+        run: terraform plan
         working-directory: infrastructure/terraform/backend
 
       - name: Terraform Apply
