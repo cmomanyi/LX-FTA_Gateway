@@ -58,6 +58,7 @@ async def verify_token(token: str):
         print("JWT verification failed:", str(e))
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
 
+
 @router.post("/login", response_model=Token)
 def login(req: LoginRequest):
     user = fake_users.get(req.username)

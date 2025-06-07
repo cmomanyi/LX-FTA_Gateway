@@ -1,18 +1,17 @@
 from datetime import datetime
 
-from fastapi import FastAPI, Request,WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request
 import random
 
 # from app import attack_router, shap_model
-from basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+from backend.routing_app.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 # from auth import router as auth_router
-from auth import  router as AuthRouter
 
-from websocket_routes import router as websocket_router
-from firmware_simulation import router as firmware_router
-from attack_simulation_dashboard import router as dashboard_router
-from admin_helper import router as admin_helper
-from token_logger import TokenLoggerMiddleware
+from backend.routing_app.websocket_routes import router as websocket_router
+from backend.routing_app.firmware_simulation import router as firmware_router
+from backend.routing_app.attack_simulation_dashboard import router as dashboard_router
+from backend.routing_app.admin_helper import router as admin_helper
+from backend.routing_app.token_logger import TokenLoggerMiddleware
 from threats.threat_route import  router as threat_router
 # from threats.alerts import router as alerts_router
 

@@ -9,10 +9,9 @@ This project deploys a secure frontend for the **LX-FTA Gateway** using AWS serv
 lx-fta-gateway/
 ├── backend/
 │   ├── app/
-│   ├── Dockerfile
 │   ├── requirements.txt
 │   └── build_docker.py
-│
+      ── Dockerfile
 ├── frontend/
 │   ├── public/
 │   ├── src/
