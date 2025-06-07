@@ -1,5 +1,8 @@
-import uvicorn
-from routes import app
+from fastapi import FastAPI
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+app = FastAPI()
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
