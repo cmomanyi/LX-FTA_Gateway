@@ -9,6 +9,10 @@ env:
   AWS_REGION: us-east-1
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
+  
+permissions:
+  id-token: write        # Required for OIDC authentication
+  contents: read         # Allows GitHub to checkout the code
 
 jobs:
   deploy:
