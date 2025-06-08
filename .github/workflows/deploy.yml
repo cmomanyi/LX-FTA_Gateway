@@ -49,7 +49,7 @@ jobs:
 
       - name: Deploy with Terraform
         run: |
-          if [ -d infrastructure/terraform/backend ]; then
+          if [ -d infrastructure/ ]; then
             cd infrastructure/terraform/backend/
             terraform init
             terraform apply -auto-approve \
