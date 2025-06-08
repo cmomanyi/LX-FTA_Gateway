@@ -46,7 +46,10 @@ jobs:
         run: |
           docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
-
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
       - name: Deploy with Terraform
         run: |
           if [  -d infrastructure/terraform/backend ]; then
