@@ -49,7 +49,7 @@ jobs:
 
       - name: Deploy with Terraform
         run: |
-          if [ -d infrastructure ]; then
+          if [ -d infrastructure/terraform/backend ]; then
             cd infrastructure
             terraform init
             terraform apply -auto-approve \
@@ -57,6 +57,6 @@ jobs:
               -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
               -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}"
           else
-            echo "❌ 'infrastructure/' directory not found. Deployment aborted."
+            echo "❌ 'infrastructure/terraform/backend/' directory not found. Deployment aborted."
             exit 1
           fi
