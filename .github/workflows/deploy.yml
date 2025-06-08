@@ -3,15 +3,17 @@ name: Deploy Backend to AWS
 
 on:
   push:
-    branches:
-      - main
+    paths:
+      - 'backend/**'
+      - 'infrastructure/terraform/backend/**'
+      - '.github/workflows/deploy-backend.yml'
 
 env:
   AWS_REGION: us-east-1
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
   AUTH_SECRET_NAME: lx-fta-auth-secrets
-  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:263307268672:secret:lx-fta-auth-secrets-gTBwYG
+  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:123456789012:secret:lx-fta-auth-secrets-gTBwYG
 
 permissions:
   id-token: write
@@ -25,7 +27,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials for deployment
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
@@ -46,19 +48,22 @@ jobs:
         run: |
           docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
+
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
+
       - name: Deploy with Terraform
         run: |
-          if [  -d infrastructure/terraform/backend ]; then
-            cd infrastructure/terraform/backend/
+          if [ -d infrastructure/terraform/backend ]; then
+            cd infrastructure/terraform/backend
             terraform init
             terraform apply -auto-approve \
               -var="image_tag=${{ env.TAG }}" \
               -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
-              -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}"
+              -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}" \
+              -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}"
           else
             echo "❌ 'infrastructure/terraform/backend/' directory not found. Deployment aborted."
             exit 1
