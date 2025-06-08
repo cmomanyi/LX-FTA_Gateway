@@ -11,7 +11,7 @@ env:
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
   AUTH_SECRET_NAME: lx-fta-auth-secrets
-  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:123456789012:secret:lx-fta-auth-secrets-AbCdEf
+  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:263307268672:secret:lx-fta-auth-secrets-gTBwYG
 
 permissions:
   id-token: write
