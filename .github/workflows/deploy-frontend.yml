@@ -45,10 +45,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Show frontend build output
+        run: ls -R frontend
+
       - name: Deploy to S3
         run: |
           aws s3 sync frontend/build s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
-
 
       - name: Invalidate CloudFront cache
         run: |
