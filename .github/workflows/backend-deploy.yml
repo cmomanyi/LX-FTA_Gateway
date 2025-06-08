@@ -1,9 +1,13 @@
 name: Deploy Backend to AWS
 
+
+
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'backend/**'
+      - 'frontend/**'
       - 'infrastructure/terraform/backend/**'
       - '.github/workflows/deploy-backend.yml'
 
