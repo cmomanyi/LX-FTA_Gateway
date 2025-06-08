@@ -1,3 +1,4 @@
+
 name: Deploy Backend to AWS
 
 on:
@@ -9,7 +10,9 @@ env:
   AWS_REGION: us-east-1
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
-  
+  AUTH_SECRET_NAME: lx-fta-auth-secrets
+  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:123456789012:secret:lx-fta-auth-secrets-AbCdEf
+
 permissions:
   id-token: write        # Required for OIDC authentication
   contents: read         # Allows GitHub to checkout the code
@@ -25,7 +28,7 @@ jobs:
       - name: Configure AWS credentials for deployment
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }} # IAM role with ECR/Terraform permissions
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Generate image tag
@@ -38,28 +41,17 @@ jobs:
       - name: Build and tag Docker image
         run: |
           docker build -t $ECR_REPO:${{ env.TAG }} backend/
-          docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
 
       - name: Push Docker image to ECR
         run: |
+          docker tag $ECR_REPO:${{ env.TAG }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
 
-      - name: Set Terraform variables
+      - name: Deploy with Terraform
         run: |
-          echo "TF_VAR_image_tag=${{ env.TAG }}" >> $GITHUB_ENV
-          echo "TF_VAR_acm_cert_arn=${{ secrets.ACM_CERT_ARN }}" >> $GITHUB_ENV
-          echo "TF_VAR_aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
-          echo "TF_VAR_aws_region=${{ env.AWS_REGION }}" >> $GITHUB_ENV
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: infrastructure/terraform/backend
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
-        working-directory: infrastructure/terraform/backend
+          cd infra/
+          terraform init
+          terraform apply -auto-approve \
+            -var="image_tag=${{ env.TAG }}" \
+            -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
+            -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}"
