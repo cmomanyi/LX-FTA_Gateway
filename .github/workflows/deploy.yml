@@ -50,7 +50,7 @@ jobs:
       - name: Deploy with Terraform
         run: |
           if [ -d infrastructure/terraform/backend ]; then
-            cd infrastructure
+            cd infrastructure/terraform/backend
             terraform init
             terraform apply -auto-approve \
               -var="image_tag=${{ env.TAG }}" \
