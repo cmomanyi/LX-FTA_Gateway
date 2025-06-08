@@ -1,0 +1,69 @@
+
+name: Deploy Frontend to AWS
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'infrastructure/terraform/frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+env:
+  AWS_REGION: us-east-1
+  FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
+  CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install and Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync frontend/dist s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} \
+            --paths "/*"
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Deploy Frontend Infrastructure with Terraform
+        run: |
+          if [ -d infrastructure/terraform/frontend ]; then
+            cd infrastructure/terraform/frontend
+            terraform init
+            terraform apply -auto-approve
+          else
+            echo "❌ 'infrastructure/terraform/frontend/' directory not found. Deployment aborted."
+            exit 1
+          fi
