@@ -1,13 +1,11 @@
 name: Deploy Backend to AWS
 
-
-
 on:
   push:
     branches:
       - main
     paths:
-      - 'frontend/**'
+      - 'backend/**'
       - 'infrastructure/terraform/backend/**'
       - '.github/workflows/deploy-backend.yml'
 
@@ -38,30 +36,31 @@ jobs:
 
       - name: Generate image tag
         id: tag
-        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+        run: |
+          echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build and tag Docker image
         run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }} backend/
+          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }} backend/
 
       - name: Push Docker image to ECR
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO:${{ env.TAG }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }}
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      - name: Deploy with Terraform
+      - name: Deploy Backend Infrastructure with Terraform
         working-directory: infrastructure/terraform/backend
         run: |
           terraform init
           terraform validate
-
           terraform apply -auto-approve \
             -var="image_tag=${{ env.TAG }}" \
             -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
