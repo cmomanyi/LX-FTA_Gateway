@@ -14,7 +14,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const res = await fetch("http://localhost:8000/login", {
+            const res = await fetch("http://ecs-alb-99933138.us-east-1.elb.amazonaws.com/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password }),

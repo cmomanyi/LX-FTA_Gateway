@@ -1,63 +1,43 @@
+provider "aws" {
+  region = "us-east-1"
+}
 
-variable "aws_region" {
+variable "cert_arn" {
+  default = "arn:aws:acm:us-east-1:263307268672:certificate/3e017cdc-f90a-41be-9c85-72e264d34cd2"
+}
+
+variable "domain_name" {
+  default = "portal.lx-gateway.tech"
+}
+
+variable "hosted_zone_id" {
+  default = "Z0357093XHYR1IYCV5T3"
+}
+
+# Assume bucket already exists manually (skip creation to avoid conflict)
+data "aws_s3_bucket" "frontend" {
+  bucket = "lx-fta-frontend"
+}
+
+resource "aws_s3_bucket_website_configuration" "frontend" {
+  bucket = data.aws_s3_bucket.frontend.id
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "index.html"
+  }
+}
+variable "github_repo" {
+  description = "GitHub repository name"
   type        = string
-  description = "AWS region"
-  default     = "us-east-1"
-}
-variable "create_origin_access_control" {
-  type        = bool
-  description = "Whether to create CloudFront Origin Access Control"
-  default     = false
-}
-
-variable "create_iam_role" {
-  type        = bool
-  description = "Whether to create IAM Role for GitHub Actions"
-  default     = false
-}
-
-variable "create_iam_policy" {
-  type        = bool
-  description = "Whether to create IAM Policy for frontend S3 access"
-  default     = false
-}
-variable "ecs_cluster_name" {
-  description = "ECS Cluster name for backend deployment"
-  type        = string
-  default = "lx-fta-cluster"
-}
-
-
-variable "frontend_bucket_name" {
-  type        = string
-  description = "S3 bucket name for frontend hosting"
-  default     = "lx-fta-frontend"
-}
-
-variable "acm_cert_arn" {
-  type        = string
-  description = "ACM Certificate ARN for HTTPS"
-  default     = "arn:aws:acm:us-east-1:263307268672:certificate/3e017cdc-f90a-41be-9c85-72e264d34cd2"
-}
-
-variable "route53_zone_id" {
-  type        = string
-  description = "Route 53 Hosted Zone ID for the domain"
-  default     = "Z0357093XHYR1IYCV5T3"
-}
-
-variable "custom_domain_name" {
-  type        = string
-  description = "Custom domain name for CloudFront"
-  default     = "portal.lx-gateway.tech"
+  default     = "LX-FTA_Gateway"
 }
 
 variable "aws_account_id" {
-  description = "Your AWS Account ID"
-  default = "263307268672"
-}
-variable "github_repo" {
+  description = "AWS account ID"
   type        = string
-  description = "GitHub repository in format owner/repo"
-  default = "cmomanyi/LX-FTA_Gateway"
+  default     = "263307268672"
 }

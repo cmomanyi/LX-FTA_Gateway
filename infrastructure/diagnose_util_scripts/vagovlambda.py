@@ -7,6 +7,7 @@ logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
 
+
 def lambda_handler(event, context):
     bucket = 'your-bucket-name'
     uuid = 'your-uuid-prefix-value'
@@ -71,3 +72,5 @@ def lambda_handler(event, context):
                         logger.error(f"Error processing record '{key}': {e}")
     else:
         logger.info(f"No objects found in bucket '{bucket}'.")
+
+
