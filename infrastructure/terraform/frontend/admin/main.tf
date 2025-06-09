@@ -98,9 +98,11 @@ resource "aws_cloudfront_distribution" "frontend" {
 
 # Choose the correct domain name for the Route53 alias
 locals {
-  cloudfront_alias_domain = var.cloudfront_distribution_id != ""
+  cloudfront_alias_domain = (
+    var.cloudfront_distribution_id != ""
     ? data.aws_cloudfront_distribution.imported[0].domain_name
     : aws_cloudfront_distribution.frontend[0].domain_name
+  )
 }
 
 # Conditionally create Route53 alias record
@@ -112,7 +114,7 @@ resource "aws_route53_record" "frontend_alias" {
 
   alias {
     name                   = local.cloudfront_alias_domain
-    zone_id                = "Z2FDTNDATAQYW2" # CloudFront hosted zone ID (global)
+    zone_id                = "Z2FDTNDATAQYW2" # CloudFront hosted zone ID
     evaluate_target_health = false
   }
 }

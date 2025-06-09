@@ -7,7 +7,7 @@ variable "custom_domain_name" {
 }
 
 variable "aws_region" {
-  type = string
+  type    = string
   default = "us-east-1"
 }
 
