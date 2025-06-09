@@ -1,29 +1,25 @@
-name: Deploy Admin Infrastructure
+name: Deploy Frontend Infrastructure
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
-    paths:
-      - 'infrastructure/terraform/frontend/admin/**'
-      - '.github/workflows/admin-infra-deploy.yml'
-
-
-env:
-  AWS_REGION: us-east-1
-  FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
-  CUSTOM_DOMAIN_NAME: portal.lx-gateway.tech
-  ACM_CERT_ARN: ${{ secrets.ACM_CERT_ARN }}
-  HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
-
-permissions:
-  id-token: write
-  contents: read
+  workflow_dispatch:
 
 jobs:
-  deploy-admin:
+  deploy:
+    name: Terraform Deploy (Frontend)
     runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      TF_VAR_aws_region: us-east-1
+      TF_VAR_frontend_bucket_name: lx-fta-frontend
+      TF_VAR_custom_domain_name: portal.lx-gateway.tech
+      TF_VAR_acm_cert_arn: ${{ secrets.ACM_CERT_ARN }}
+      TF_VAR_hosted_zone_id: ${{ secrets.HOSTED_ZONE_ID }}
+      TF_VAR_cloudfront_distribution_id: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      TF_VAR_create_route53_record: true
 
     steps:
       - name: Checkout Code
@@ -32,21 +28,30 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ secrets.ADMIN_DEPLOYMENT_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: 1.6.6
 
-      - name: Deploy Admin Infra via Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infrastructure/terraform/frontend/admin
+
+      - name: Conditional CloudFront Import
+        if: env.TF_VAR_cloudfront_distribution_id != ''
         run: |
-          cd infrastructure/terraform/frontend/admin
-          terraform init
-          terraform apply -auto-approve \
-            -var="aws_region=${{ env.AWS_REGION }}" \
-            -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}" \
-            -var="custom_domain_name=${{ env.CUSTOM_DOMAIN_NAME }}" \
-            -var="acm_cert_arn=${{ env.ACM_CERT_ARN }}" \
-            -var="hosted_zone_id=${{ env.HOSTED_ZONE_ID }}"
+          terraform state list | grep aws_cloudfront_distribution.frontend || \
+          terraform import aws_cloudfront_distribution.frontend ${TF_VAR_cloudfront_distribution_id}
+        working-directory: ./infrastructure/terraform/frontend/admin
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ./infrastructure/terraform/frontend/admin
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./infrastructure/terraform/frontend/admin

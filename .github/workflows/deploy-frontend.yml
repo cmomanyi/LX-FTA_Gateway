@@ -1,57 +1,68 @@
-name: Deploy Frontend Infrastructure
+name: Deploy Frontend to AWS
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+    paths:
+      - 'frontend/**'
+      - 'infrastructure/terraform/frontend/github/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+env:
+  AWS_REGION: us-east-1
+  FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
+  CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
-    name: Terraform Deploy (Frontend)
     runs-on: ubuntu-latest
 
-    env:
-      AWS_REGION: us-east-1
-      TF_VAR_aws_region: us-east-1
-      TF_VAR_frontend_bucket_name: lx-fta-frontend
-      TF_VAR_custom_domain_name: portal.lx-gateway.tech
-      TF_VAR_acm_cert_arn: ${{ secrets.ACM_CERT_ARN }}
-      TF_VAR_hosted_zone_id: ${{ secrets.HOSTED_ZONE_ID }}
-      TF_VAR_cloudfront_distribution_id: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-      TF_VAR_create_route53_record: true
-
     steps:
-      - name: Checkout Code
+      - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install and Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Show build output
+        run: ls -R frontend/build
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync frontend/build s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} \
+            --paths "/*" || echo "⚠️ CloudFront invalidation skipped or failed."
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.6.6
+          terraform_version: 1.5.7
 
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./infrastructure/terraform/frontend/admin
-
-      - name: Conditional CloudFront Import
-        if: env.TF_VAR_cloudfront_distribution_id != ''
+      - name: Apply GitHub IAM Policies (Optional for Role Audit)
+        working-directory: infrastructure/terraform/frontend/github
         run: |
-          terraform state list | grep aws_cloudfront_distribution.frontend || \
-          terraform import aws_cloudfront_distribution.frontend ${TF_VAR_cloudfront_distribution_id}
-        working-directory: ./infrastructure/terraform/frontend/admin
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: ./infrastructure/terraform/frontend/admin
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./infrastructure/terraform/frontend/admin
+          terraform init
+          terraform apply -auto-approve -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}"
