@@ -41,3 +41,14 @@ variable "aws_account_id" {
   type        = string
   default     = "263307268672"
 }
+variable "create_origin_access_control" {
+  default = false
+}
+
+variable "create_iam_role" {
+  default = true
+}
+
+variable "create_iam_policy" {
+  default = true
+}
