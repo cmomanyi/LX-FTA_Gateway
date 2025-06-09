@@ -1,137 +1,78 @@
-provider "aws" {
-  region = var.aws_region
-}
+name: Deploy Frontend to AWS
 
-resource "random_string" "suffix" {
-  length  = 6
-  upper   = false
-  special = false
-}
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'infrastructure/terraform/frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
 
-resource "aws_s3_bucket" "frontend" {
-  bucket        = "lx-fta-frontend-${random_string.suffix.result}"
-  force_destroy = true
+env:
+  AWS_REGION: us-east-1
+  FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
+  CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
+  CUSTOM_DOMAIN_NAME: portal.lx-gateway.tech
 
-  lifecycle {
-    prevent_destroy = true
-  }
+permissions:
+  id-token: write
+  contents: read
 
-  tags = {
-    Environment = "Production"
-    Project     = "LX-FTA"
-  }
-}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-resource "aws_s3_bucket_website_configuration" "frontend_site" {
-  bucket = aws_s3_bucket.frontend.id
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-  index_document {
-    suffix = "index.html"
-  }
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-  error_document {
-    key = "index.html"
-  }
-}
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-resource "aws_cloudfront_origin_access_control" "frontend_oac" {
-  name                              = "frontend-oac"
-  description                       = "Access for CloudFront to S3"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
+      - name: Install dependencies and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
 
-resource "aws_cloudfront_distribution" "frontend_distribution" {
-  enabled             = true
-  default_root_object = "index.html"
+      - name: Verify frontend build output
+        run: ls -R frontend/build
 
-  origin {
-    domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id   = "frontend-origin"
+      - name: Deploy to S3
+        run: |
+          aws s3 sync frontend/build s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
 
-    origin_access_control_id = aws_cloudfront_origin_access_control.frontend_oac.id
-  }
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} \
+            --paths "/*"
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
 
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "frontend-origin"
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
 
-    forwarded_values {
-      query_string = false
-
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = var.acm_cert_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-
-  tags = {
-    Name = "LX-FTA Frontend CDN"
-  }
-}
-
-# resource "aws_iam_role" "github_actions_deploy" {
-#   name = "GitHubActionsDeployRole"
-#
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17",
-#     Statement = [
-#       {
-#         Effect = "Allow",
-#         Principal = {
-#           Federated = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
-#         },
-#         Action = "sts:AssumeRoleWithWebIdentity",
-#         Condition = {
-#           StringEquals = {
-#             "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/main"
-#           }
-#         }
-#       }
-#     ]
-#   })
-# }
-
-
-resource "aws_iam_policy" "frontend_s3_access" {
-  name        = "FrontendS3AccessPolicy"
-  description = "Access policy for S3 deployment"
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect   = "Allow",
-        Action   = ["s3:*"],
-        Resource = [
-          "arn:aws:s3:::${aws_s3_bucket.frontend.bucket}",
-          "arn:aws:s3:::${aws_s3_bucket.frontend.bucket}/*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "frontend_s3_policy_attach" {
-  role       = aws_iam_role.github_actions_deploy.name
-  policy_arn = aws_iam_policy.frontend_s3_access.arn
-}
+      - name: Deploy Frontend Infrastructure (Terraform)
+        run: |
+          cd infrastructure/terraform/frontend
+          terraform init
+          terraform apply -auto-approve \
+            -var="bucket_name=${{ env.FRONTEND_BUCKET_NAME }}" \
+            -var="domain_name=${{ env.CUSTOM_DOMAIN_NAME }}" \
+            -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}"
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
