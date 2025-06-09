@@ -20,7 +20,7 @@ variable "hosted_zone_id" {
 }
 
 variable "cloudfront_distribution_id" {
-  description = "If provided, skips CloudFront creation and uses existing distribution"
+  description = "Use existing CloudFront distribution if provided"
   type        = string
   default     = ""
 }

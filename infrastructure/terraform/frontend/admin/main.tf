@@ -1,7 +1,9 @@
+# Fetch the S3 bucket by name
 data "aws_s3_bucket" "frontend" {
   bucket = var.frontend_bucket_name
 }
 
+# Website configuration for the S3 bucket
 resource "aws_s3_bucket_website_configuration" "frontend" {
   bucket = data.aws_s3_bucket.frontend.id
 
@@ -14,6 +16,7 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   }
 }
 
+# Allow public access to S3 website bucket
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket                  = data.aws_s3_bucket.frontend.id
   block_public_acls       = false
@@ -22,6 +25,7 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   restrict_public_buckets = false
 }
 
+# Bucket policy to allow public read
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = data.aws_s3_bucket.frontend.id
 
@@ -39,13 +43,13 @@ resource "aws_s3_bucket_policy" "frontend" {
   })
 }
 
-# Use data source if existing distribution is provided
+# If importing, fetch existing CloudFront distribution
 data "aws_cloudfront_distribution" "imported" {
   count = var.cloudfront_distribution_id != "" ? 1 : 0
   id    = var.cloudfront_distribution_id
 }
 
-# Only create if no existing distribution is supplied
+# Conditionally create CloudFront distribution
 resource "aws_cloudfront_distribution" "frontend" {
   count               = var.cloudfront_distribution_id != "" ? 0 : 1
   enabled             = true
@@ -92,7 +96,14 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
-# Route 53 record that dynamically references either the new or imported distribution
+# Choose the correct domain name for the Route53 alias
+locals {
+  cloudfront_alias_domain = var.cloudfront_distribution_id != ""
+    ? data.aws_cloudfront_distribution.imported[0].domain_name
+    : aws_cloudfront_distribution.frontend[0].domain_name
+}
+
+# Conditionally create Route53 alias record
 resource "aws_route53_record" "frontend_alias" {
   count   = var.create_route53_record ? 1 : 0
   zone_id = var.hosted_zone_id
@@ -100,11 +111,8 @@ resource "aws_route53_record" "frontend_alias" {
   type    = "A"
 
   alias {
-    name = var.cloudfront_distribution_id != ""
-      ? data.aws_cloudfront_distribution.imported[0].domain_name
-      : aws_cloudfront_distribution.frontend[0].domain_name
-
-    zone_id = "Z2FDTNDATAQYW2" # Always CloudFront's hosted zone ID
+    name                   = local.cloudfront_alias_domain
+    zone_id                = "Z2FDTNDATAQYW2" # CloudFront hosted zone ID (global)
     evaluate_target_health = false
   }
 }
