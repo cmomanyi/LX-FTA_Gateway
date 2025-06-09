@@ -1,4 +1,3 @@
-
 name: Deploy Frontend to AWS
 
 on:
@@ -7,14 +6,13 @@ on:
       - main
     paths:
       - 'frontend/**'
-      - 'infrastructure/terraform/frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
+      - 'infrastructure/terraform/frontend/github/**'
+      - '.github/workflows/deploy-deploy.yml'
 
 env:
   AWS_REGION: us-east-1
   FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
   CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
-  CUSTOM_DOMAIN_NAME: portal.lx-gateway.tech
 
 permissions:
   id-token: write
@@ -34,7 +32,7 @@ jobs:
           role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
@@ -45,10 +43,10 @@ jobs:
           npm ci
           npm run build
 
-      - name: Show frontend build output
-        run: ls -R frontend
+      - name: Show build output
+        run: ls -R frontend/build
 
-      - name: Deploy to S3
+      - name: Sync to S3
         run: |
           aws s3 sync frontend/build s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
 
@@ -56,24 +54,15 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} \
-            --paths "/*" || echo "CloudFront invalidation skipped or failed."
+            --paths "/*" || echo "⚠️ CloudFront invalidation skipped or failed."
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-
-      - name: Deploy Frontend Infrastructure with Terraform
+      - name: Apply GitHub IAM Policies (Optional for Role Audit)
+        working-directory: terraform05/github
         run: |
-          if [ -d infrastructure/terraform/frontend ]; then
-            cd infrastructure/terraform/frontend
-            terraform init
-            terraform apply -auto-approve \
-              -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}" \
-              -var="custom_domain_name=${{ env.CUSTOM_DOMAIN_NAME }}" \
-              -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}"
-          else
-            echo "❌ 'infrastructure/terraform/frontend/' directory not found. Deployment aborted."
-            exit 1
-          fi
+          terraform init
+          terraform apply -auto-approve -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}"
