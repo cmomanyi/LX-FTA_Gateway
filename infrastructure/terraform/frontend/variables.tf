@@ -52,3 +52,24 @@ variable "create_iam_role" {
 variable "create_iam_policy" {
   default = true
 }
+variable "frontend_bucket_name" {
+  description = "Name of the frontend S3 bucket"
+  type        = string
+}
+
+variable "custom_domain_name" {
+  description = "Custom domain name for the frontend app (e.g., portal.lx-gateway.tech)"
+  type        = string
+}
+
+variable "acm_cert_arn" {
+  description = "ACM Certificate ARN for HTTPS on CloudFront"
+  type        = string
+}
+
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+

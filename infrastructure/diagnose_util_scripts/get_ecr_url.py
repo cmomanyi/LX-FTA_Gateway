@@ -1,20 +1,42 @@
 import boto3
+import json
 
+# Constants – update as needed
+AWS_ACCOUNT_ID = "263307268672"
+ROLE_NAME = "GitHubActionsDeployRole"
+POLICY_NAME = "FrontendS3AccessPolicy"
+FRONTEND_BUCKET = "lx-fta-frontend"
 
-def get_ecr_registry_url(region="us-east-1"):
-    # Initialize STS and ECR clients
-    sts_client = boto3.client("sts", region_name=region)
-    ecr_client = boto3.client("ecr", region_name=region)
+iam = boto3.client("iam")
 
-    # Get AWS account ID
-    account_id = sts_client.get_caller_identity()["Account"]
+# Build IAM policy
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["s3:ListBucket"],
+            "Resource": f"arn:aws:s3:::{FRONTEND_BUCKET}"
+        },
+        {
+            "Effect": "Allow",
+            "Action": ["s3:*"],
+            "Resource": f"arn:aws:s3:::{FRONTEND_BUCKET}/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": ["cloudfront:CreateInvalidation"],
+            "Resource": "*"
+        }
+    ]
+}
 
-    # Construct ECR URL
-    registry_url = f"{account_id}.dkr.ecr.{region}.amazonaws.com"
+# Attach inline policy
+response = iam.put_role_policy(
+    RoleName=ROLE_NAME,
+    PolicyName=POLICY_NAME,
+    PolicyDocument=json.dumps(policy_document)
+)
 
-    print(f"✅ ECR Registry URL: {registry_url}")
-    return registry_url
-
-
-if __name__ == "__main__":
-    get_ecr_registry_url()
+print("✅ Successfully updated policy:")
+print(json.dumps(policy_document, indent=2))
