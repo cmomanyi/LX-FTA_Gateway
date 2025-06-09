@@ -1,5 +1,3 @@
-
-
 data "aws_s3_bucket" "frontend" {
   bucket = var.frontend_bucket_name
 }
@@ -41,7 +39,15 @@ resource "aws_s3_bucket_policy" "frontend" {
   })
 }
 
+# Use data source if existing distribution is provided
+data "aws_cloudfront_distribution" "imported" {
+  count = var.cloudfront_distribution_id != "" ? 1 : 0
+  id    = var.cloudfront_distribution_id
+}
+
+# Only create if no existing distribution is supplied
 resource "aws_cloudfront_distribution" "frontend" {
+  count               = var.cloudfront_distribution_id != "" ? 0 : 1
   enabled             = true
   default_root_object = "index.html"
 
@@ -62,9 +68,8 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_cache_behavior {
     target_origin_id       = "S3WebsiteOrigin"
     viewer_protocol_policy = "redirect-to-https"
-
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
 
     forwarded_values {
       query_string = false
@@ -87,14 +92,19 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
+# Route 53 record that dynamically references either the new or imported distribution
 resource "aws_route53_record" "frontend_alias" {
+  count   = var.create_route53_record ? 1 : 0
   zone_id = var.hosted_zone_id
   name    = var.custom_domain_name
   type    = "A"
 
   alias {
-    name                   = aws_cloudfront_distribution.frontend.domain_name
-    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    name = var.cloudfront_distribution_id != ""
+      ? data.aws_cloudfront_distribution.imported[0].domain_name
+      : aws_cloudfront_distribution.frontend[0].domain_name
+
+    zone_id = "Z2FDTNDATAQYW2" # Always CloudFront's hosted zone ID
     evaluate_target_health = false
   }
 }
