@@ -88,7 +88,29 @@ resource "aws_cloudfront_distribution" "frontend_distribution" {
     Name = "LX-FTA Frontend CDN"
   }
 }
-
+#
+# resource "aws_iam_role" "github_actions_deploy" {
+#   name = "GitHubActionsDeployRole"
+#
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [
+#       {
+#         Effect = "Allow",
+#         Principal = {
+#           Service = "ec2.amazonaws.com",
+#           AWS     = "arn:aws:iam::${var.aws_account_id}:root"
+#         },
+#         Action = "sts:AssumeRole"
+#       }
+#     ]
+#   })
+#
+#   lifecycle {
+#     prevent_destroy = true
+#     ignore_changes  = [name]
+#   }
+# }
 resource "aws_iam_role" "github_actions_deploy" {
   name = "GitHubActionsDeployRole"
 
@@ -98,19 +120,19 @@ resource "aws_iam_role" "github_actions_deploy" {
       {
         Effect = "Allow",
         Principal = {
-          Service = "ec2.amazonaws.com",
-          AWS     = "arn:aws:iam::${var.aws_account_id}:root"
+          Federated = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
         },
-        Action = "sts:AssumeRole"
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/main"
+          }
+        }
       }
     ]
   })
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [name]
-  }
 }
+
 
 resource "aws_iam_policy" "frontend_s3_access" {
   name        = "FrontendS3AccessPolicy"

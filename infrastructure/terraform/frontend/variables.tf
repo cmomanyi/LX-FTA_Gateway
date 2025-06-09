@@ -33,3 +33,7 @@ variable "aws_account_id" {
   description = "Your AWS Account ID"
   default = "263307268672"
 }
+variable "github_repo" {
+  type        = string
+  description = "GitHub repository in format owner/repo"
+}
