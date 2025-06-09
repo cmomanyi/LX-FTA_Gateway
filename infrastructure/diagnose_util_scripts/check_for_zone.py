@@ -1,27 +1,36 @@
 import boto3
+import os
+import json
+import logging
 
-def check_public_hosted_zone(domain_name):
-    client = boto3.client('route53')
+logging.basicConfig(level=logging.DEBUG)
 
-    # List all hosted zones
-    response = client.list_hosted_zones()
-    hosted_zones = response['HostedZones']
 
-    # Normalize domain name with trailing dot
-    normalized_domain = domain_name if domain_name.endswith('.') else domain_name + '.'
+def fetch_auth_secrets():
+    secret_arn = os.getenv("SECRETSMANAGER_SECRET_ARN")
+    region = os.getenv("AWS_REGION", "us-east-1")
 
-    for zone in hosted_zones:
-        if zone['Name'] == normalized_domain:
-            if not zone['Config']['PrivateZone']:
-                print(f"✅ Public hosted zone for '{domain_name}' exists. HostedZoneId: {zone['Id']}")
-                return True
-            else:
-                print(f"⚠️ Hosted zone for '{domain_name}' exists, but it is a **private** zone.")
-                return False
+    logging.debug(f"SECRETSMANAGER_SECRET_ARN: {secret_arn}")
+    logging.debug(f"AWS_REGION: {region}")
 
-    print(f"❌ No hosted zone found for '{domain_name}'.")
-    return False
+    if not secret_arn:
+        raise ValueError("❌ SECRETSMANAGER_SECRET_ARN is not set.")
 
-# Run the check
-if __name__ == "__main__":
-    check_public_hosted_zone("lxfta.io")
+    try:
+        client = boto3.client("secretsmanager", region_name=region)
+        response = client.get_secret_value(SecretId=secret_arn)
+
+        logging.debug("✅ AWS SecretsManager response received.")
+        logging.debug(f"Raw response: {response}")
+
+        secret_string = response.get("SecretString")
+        if not secret_string:
+            raise ValueError("❌ SecretString is missing in the response.")
+
+        secrets = json.loads(secret_string)
+        logging.debug(f"✅ Parsed secrets: {secrets}")
+        return secrets
+
+    except Exception as e:
+        logging.error(f"❌ Failed to fetch or parse secrets: {e}")
+        raise

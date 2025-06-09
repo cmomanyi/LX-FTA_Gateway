@@ -1,53 +1,37 @@
 import boto3
 import json
 
-role_name = "GitHubActionsDeployRole"
-policy_name = "GitHubFullDeployPolicy"
+# Replace with your actual values
+bucket_name = "lx-fta-frontend"
+cloudfront_dist_id = "E1R5RPWCTLLS09"  # Replace with your actual CloudFront distribution ID
+aws_account_id = "263307268672"
 
-policy_doc = {
+# Policy to allow CloudFront to read objects from the S3 bucket
+policy = {
     "Version": "2012-10-17",
     "Statement": [
         {
+            "Sid": "AllowCloudFrontServicePrincipalReadOnly",
             "Effect": "Allow",
-            "Action": [
-                "cloudfront:*",
-                "iam:CreatePolicy",
-                "iam:CreateRole",
-                "iam:AttachRolePolicy",
-                "iam:PassRole",
-                "iam:GetRole",
-                "iam:GetPolicy",
-                "iam:UpdateAssumeRolePolicy",
-                "s3:*",
-                "ecr:*",
-                "ecs:*",
-                "secretsmanager:GetSecretValue",
-                "logs:*",
-                "ec2:DescribeSecurityGroups",
-                "elasticloadbalancing:DescribeTargetGroups",
-                "dynamodb:DescribeTable"
-            ],
-            "Resource": "*"
+            "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+            },
+            "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{bucket_name}/*",
+            "Condition": {
+                "StringEquals": {
+                    "AWS:SourceArn": f"arn:aws:cloudfront::{aws_account_id}:distribution/{cloudfront_dist_id}"
+                }
+            }
         }
     ]
 }
 
-iam = boto3.client("iam")
-sts = boto3.client("sts")
-account_id = sts.get_caller_identity()["Account"]
-policy_arn = f"arn:aws:iam::{account_id}:policy/{policy_name}"
+# Attach policy to the bucket
+s3 = boto3.client("s3")
+s3.put_bucket_policy(
+    Bucket=bucket_name,
+    Policy=json.dumps(policy)
+)
 
-# Create or skip policy
-try:
-    iam.create_policy(
-        PolicyName=policy_name,
-        PolicyDocument=json.dumps(policy_doc),
-        Description="Policy for full GitHub Actions deployment permissions"
-    )
-    print("✅ Policy created.")
-except iam.exceptions.EntityAlreadyExistsException:
-    print("⚠️ Policy already exists.")
-
-# Attach to role
-iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-print(f"✅ Attached policy to role: {role_name}")
+print(f"✅ Policy attached to S3 bucket {bucket_name} to allow CloudFront access.")
