@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'infrastructure/terraform/frontend/admin/**'
+      - '.github/workflows/admin-infra-deploy.yml'
+
 
 env:
   AWS_REGION: us-east-1
@@ -40,7 +42,7 @@ jobs:
 
       - name: Deploy Admin Infra via Terraform
         run: |
-          cd terraform05/admin
+          cd infrastructure/terraform/frontend/admin
           terraform init
           terraform apply -auto-approve \
             -var="aws_region=${{ env.AWS_REGION }}" \

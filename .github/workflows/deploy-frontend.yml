@@ -7,7 +7,7 @@ on:
     paths:
       - 'frontend/**'
       - 'infrastructure/terraform/frontend/github/**'
-      - '.github/workflows/deploy-deploy.yml'
+      - '.github/workflows/deploy-frontend.yml'
 
 env:
   AWS_REGION: us-east-1
@@ -62,7 +62,7 @@ jobs:
           terraform_version: 1.5.7
 
       - name: Apply GitHub IAM Policies (Optional for Role Audit)
-        working-directory: terraform05/github
+        working-directory: infrastructure/terraform/frontend/github
         run: |
           terraform init
           terraform apply -auto-approve -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}"
