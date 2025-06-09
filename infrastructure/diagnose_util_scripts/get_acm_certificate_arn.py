@@ -1,23 +1,29 @@
 import boto3
 
-# Replace with your actual domain
-TARGET_DOMAIN = "portal.lx-gateway.tech"
-REGION = "us-east-1"
+def check_github_oidc_provider():
+    iam = boto3.client('iam')
 
+    try:
+        response = iam.list_open_id_connect_providers()
+        providers = response['OpenIDConnectProviderList']
 
-def get_certificate_arn(domain_name, region):
-    client = boto3.client("acm", region_name=region)
-    paginator = client.get_paginator("list_certificates")
-    for page in paginator.paginate(CertificateStatuses=['PENDING_VALIDATION', 'ISSUED']):
-        for cert in page["CertificateSummaryList"]:
-            if cert["DomainName"] == domain_name:
-                return cert["CertificateArn"]
-    return None
+        for provider in providers:
+            provider_arn = provider['Arn']
+            details = iam.get_open_id_connect_provider(OpenIDConnectProviderArn=provider_arn)
+            url = details.get('Url', '')
 
+            if url == 'token.actions.githubusercontent.com':
+                print(f"✅ GitHub OIDC Provider found: {provider_arn}")
+                print("Provider details:")
+                print(f"- URL: {url}")
+                print(f"- Client IDs: {details.get('ClientIDList', [])}")
+                print(f"- Thumbprints: {details.get('ThumbprintList', [])}")
+                return
+
+        print("❌ GitHub OIDC Provider (token.actions.githubusercontent.com) NOT found.")
+
+    except Exception as e:
+        print(f"Error checking OIDC providers: {e}")
 
 if __name__ == "__main__":
-    arn = get_certificate_arn(TARGET_DOMAIN, REGION)
-    if arn:
-        print(f"\n✅ Certificate ARN for {TARGET_DOMAIN}:\n{arn}")
-    else:
-        print(f"\n❌ No certificate found for domain: {TARGET_DOMAIN}")
+    check_github_oidc_provider()
