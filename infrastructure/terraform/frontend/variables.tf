@@ -4,6 +4,24 @@ variable "aws_region" {
   description = "AWS region"
   default     = "us-east-1"
 }
+variable "create_origin_access_control" {
+  type        = bool
+  description = "Whether to create CloudFront Origin Access Control"
+  default     = false
+}
+
+variable "create_iam_role" {
+  type        = bool
+  description = "Whether to create IAM Role for GitHub Actions"
+  default     = false
+}
+
+variable "create_iam_policy" {
+  type        = bool
+  description = "Whether to create IAM Policy for frontend S3 access"
+  default     = false
+}
+
 
 variable "frontend_bucket_name" {
   type        = string
