@@ -63,14 +63,15 @@ jobs:
         with:
           terraform_version: 1.5.7
 
+
       - name: Deploy Frontend Infrastructure with Terraform
         run: |
           if [ -d infrastructure/terraform/frontend ]; then
             cd infrastructure/terraform/frontend
             terraform init
             terraform apply -auto-approve \
-              -var="bucket_name=${{ env.FRONTEND_BUCKET_NAME }}" \
-              -var="domain_name=${{ env.CUSTOM_DOMAIN_NAME }}" \
+              -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}" \
+              -var="custom_domain_name=${{ env.CUSTOM_DOMAIN_NAME }}" \
               -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}"
           else
             echo "❌ 'infrastructure/terraform/frontend/' directory not found. Deployment aborted."
