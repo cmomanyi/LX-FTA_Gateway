@@ -21,6 +21,11 @@ variable "create_iam_policy" {
   description = "Whether to create IAM Policy for frontend S3 access"
   default     = false
 }
+variable "ecs_cluster_name" {
+  description = "ECS Cluster name for backend deployment"
+  type        = string
+  default = "lx-fta-cluster"
+}
 
 
 variable "frontend_bucket_name" {
