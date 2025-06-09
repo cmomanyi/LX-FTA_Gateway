@@ -36,4 +36,5 @@ variable "aws_account_id" {
 variable "github_repo" {
   type        = string
   description = "GitHub repository in format owner/repo"
+  default = "cmomanyi/LX-FTA_Gateway"
 }
