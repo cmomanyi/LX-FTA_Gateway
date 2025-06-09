@@ -1,29 +1,77 @@
 import boto3
+import json
 
-def check_github_oidc_provider():
-    iam = boto3.client('iam')
+# Parameters
+role_name = "GitHubActionsDeployRole"
+policy_name = "GitHubActionsFullDeployPolicy"
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3Access",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::lx-fta-frontend*",
+                "arn:aws:s3:::lx-fta-frontend*/*"
+            ]
+        },
+        {
+            "Sid": "CloudFrontAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateInvalidation",
+                "cloudfront:GetDistribution",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:CreateDistribution",
+                "cloudfront:CreateOriginAccessControl"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "IAMAccess",
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole",
+                "iam:GetRole",
+                "iam:CreateRole",
+                "iam:AttachRolePolicy",
+                "iam:CreatePolicy",
+                "iam:GetPolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 
-    try:
-        response = iam.list_open_id_connect_providers()
-        providers = response['OpenIDConnectProviderList']
+# Create IAM client
+iam = boto3.client('iam')
 
-        for provider in providers:
-            provider_arn = provider['Arn']
-            details = iam.get_open_id_connect_provider(OpenIDConnectProviderArn=provider_arn)
-            url = details.get('Url', '')
+# Create the policy
+try:
+    response = iam.create_policy(
+        PolicyName=policy_name,
+        PolicyDocument=json.dumps(policy_document),
+        Description="Policy for GitHub Actions to deploy frontend and backend",
+    )
+    policy_arn = response['Policy']['Arn']
+    print(f"✅ Created policy: {policy_arn}")
+except iam.exceptions.EntityAlreadyExistsException:
+    account_id = boto3.client('sts').get_caller_identity().get('Account')
+    policy_arn = f"arn:aws:iam::{account_id}:policy/{policy_name}"
+    print(f"⚠️ Policy already exists: {policy_arn}")
 
-            if url == 'token.actions.githubusercontent.com':
-                print(f"✅ GitHub OIDC Provider found: {provider_arn}")
-                print("Provider details:")
-                print(f"- URL: {url}")
-                print(f"- Client IDs: {details.get('ClientIDList', [])}")
-                print(f"- Thumbprints: {details.get('ThumbprintList', [])}")
-                return
-
-        print("❌ GitHub OIDC Provider (token.actions.githubusercontent.com) NOT found.")
-
-    except Exception as e:
-        print(f"Error checking OIDC providers: {e}")
-
-if __name__ == "__main__":
-    check_github_oidc_provider()
+# Attach the policy to the role
+try:
+    iam.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=policy_arn
+    )
+    print(f"✅ Attached policy to role: {role_name}")
+except Exception as e:
+    print(f"❌ Failed to attach policy: {e}")

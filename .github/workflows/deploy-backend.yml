@@ -14,7 +14,8 @@ env:
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
   AUTH_SECRET_NAME: lx-fta-auth-secrets
-  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:123456789012:secret:lx-fta-auth-secrets-gTBwYG
+  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:263307268672:secret:lx-fta-auth-secrets-gTBwYG
+  ACM_CERT_ARN: ${{ secrets.ACM_CERT_ARN }}
 
 permissions:
   id-token: write
@@ -36,9 +37,7 @@ jobs:
 
       - name: Generate image tag
         id: tag
-        run: |
-          echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
@@ -56,7 +55,7 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Deploy Backend Infrastructure with Terraform
+      - name: Deploy with Terraform
         working-directory: infrastructure/terraform/backend
         run: |
           terraform init
@@ -65,4 +64,5 @@ jobs:
             -var="image_tag=${{ env.TAG }}" \
             -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
             -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}" \
-            -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}"
+            -var="acm_cert_arn=${{ env.ACM_CERT_ARN }}" \
+            -var="ecr_repo_name=${{ env.ECR_REPO }}"
