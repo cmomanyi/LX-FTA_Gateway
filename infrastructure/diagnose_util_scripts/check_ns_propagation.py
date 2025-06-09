@@ -1,46 +1,42 @@
-import dns.resolver
-import time
+import boto3
+import json
 
-# Replace this with your domain
-DOMAIN = "lx-gateway.tech"
+# Replace with your actual values
+role_name = "GitHubActionsDeployRole"
+bucket_name = "lx-fta-frontend-gdwib5"
+policy_name = "FrontendS3AccessPolicy"
 
-# Expected AWS Route 53 nameservers
-EXPECTED_NS = {
-    "ns-799.awsdns-35.net.",
-    "ns-98.awsdns-12.com.",
-    "ns-1826.awsdns-36.co.uk.",
-    "ns-1482.awsdns-57.org."
+# Create IAM client
+iam = boto3.client("iam")
+
+# Define the inline policy
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowS3AccessForFrontend",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                f"arn:aws:s3:::{bucket_name}",
+                f"arn:aws:s3:::{bucket_name}/*"
+            ]
+        }
+    ]
 }
 
-# Public DNS resolvers to check against
-RESOLVERS = {
-    "Google": "8.8.8.8",
-    "Cloudflare": "1.1.1.1",
-    "OpenDNS": "208.67.222.222",
-    "Quad9": "9.9.9.9",
-}
-
-def check_ns(resolver_ip, label):
-    resolver = dns.resolver.Resolver()
-    resolver.nameservers = [resolver_ip]
-    try:
-        answer = resolver.resolve(DOMAIN, 'NS')
-        returned_ns = {str(r).lower() for r in answer}
-        success = EXPECTED_NS.issubset(returned_ns)
-        return (label, success, returned_ns)
-    except Exception as e:
-        return (label, False, str(e))
-
-def main():
-    print(f"Checking NS propagation for {DOMAIN}...\nExpected: {EXPECTED_NS}\n")
-    for label, ip in RESOLVERS.items():
-        result = check_ns(ip, label)
-        if result[1]:
-            print(f"[✔] {label} ({ip}) sees all expected NS records.")
-        else:
-            print(f"[✖] {label} ({ip}) missing NS records.")
-            print(f"    Returned: {result[2]}")
-    print("\nCheck again later if not all resolvers are updated.")
-
-if __name__ == "__main__":
-    main()
+# Attach policy to IAM role
+try:
+    iam.put_role_policy(
+        RoleName=role_name,
+        PolicyName=policy_name,
+        PolicyDocument=json.dumps(policy_document)
+    )
+    print(f"✅ Successfully attached policy '{policy_name}' to role '{role_name}'")
+except Exception as e:
+    print(f"❌ Failed to attach policy: {e}")
