@@ -64,9 +64,8 @@ variable "jwt_secret" {
   description = "JWT signing secret"
   type        = string
 }
-variable "api_domain_name" {}
-variable "api_acm_cert_arn" {}
-variable "hosted_zone_id" {}
+
+
 variable "alb_arn" {
   description = "ARN of the Application Load Balancer"
   type        = string
