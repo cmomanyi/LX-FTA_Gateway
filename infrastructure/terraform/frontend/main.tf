@@ -5,7 +5,9 @@ provider "aws" {
 }
 
 variable "frontend_bucket_name" {}
-variable "custom_domain_name" {}
+variable "custom_domain_name" {
+  default = ""
+}
 variable "hosted_zone_id" {}
 variable "acm_cert_arn" {}
 variable "aws_region" {}
@@ -60,7 +62,7 @@ resource "aws_s3_bucket_policy" "frontend" {
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
-  aliases             = [var.custom_domain_name]
+  aliases             = length(var.custom_domain_name) > 0 ? [var.custom_domain_name] : []
 
   origin {
     domain_name = "${var.frontend_bucket_name}.s3-website-${var.aws_region}.amazonaws.com"
@@ -102,8 +104,9 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
-# Route53 record
+# Route53 record (conditionally created if domain name is provided)
 resource "aws_route53_record" "frontend_alias" {
+  count   = length(var.custom_domain_name) > 0 ? 1 : 0
   zone_id = var.hosted_zone_id
   name    = var.custom_domain_name
   type    = "A"

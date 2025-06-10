@@ -1,45 +1,35 @@
 import boto3
 import json
 
-iam = boto3.client("iam")
-account_id = boto3.client("sts").get_caller_identity()["Account"]
-role_name = "GitHubActionsDeployRole"
-policy_name = "GitHubActionsMissingPermsPolicy"
+# Initialize IAM client
+iam = boto3.client('iam')
 
+# Define role and policy
+role_name = "GitHubActionsDeployRole"
+policy_name = "GitHubActionsELBPermissions"
+
+# Permissions to be granted
 policy_document = {
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
             "Action": [
-                "s3:GetObject",
-                "s3:PutObject",
-                "cloudfront:CreateDistribution",
-                "route53:ChangeResourceRecordSets",
-                "iam:ListAttachedRolePolicies",
                 "elasticloadbalancing:DescribeListeners",
-                "dynamodb:ListTagsOfResource"
+                "elasticloadbalancing:DescribeListenerAttributes"
             ],
             "Resource": "*"
         }
     ]
 }
 
-# Check if policy already exists
-policy_arn = f"arn:aws:iam::{account_id}:policy/{policy_name}"
+# Apply inline policy
 try:
-    iam.get_policy(PolicyArn=policy_arn)
-    print(f"ℹ️ Policy '{policy_name}' already exists.")
-except iam.exceptions.NoSuchEntityException:
-    print("📌 Creating new policy...")
-    iam.create_policy(
+    iam.put_role_policy(
+        RoleName=role_name,
         PolicyName=policy_name,
         PolicyDocument=json.dumps(policy_document)
     )
-
-# Attach policy to role
-try:
-    iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-    print(f"🔗 Policy '{policy_name}' successfully attached to '{role_name}'.")
+    print(f"✅ Successfully attached inline policy '{policy_name}' to role '{role_name}'.")
 except Exception as e:
     print(f"❌ Failed to attach policy: {e}")
