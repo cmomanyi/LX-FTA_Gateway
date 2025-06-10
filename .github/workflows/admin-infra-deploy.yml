@@ -1,50 +1,41 @@
-# ===================== admin-infra-deploy.yml =====================
-
-name: "Deploy Admin Infrastructure"
+name: Terraform Deploy
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'infrastructure/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
-    name: Apply Terraform for Admin Infrastructure
+    name: Deploy Terraform Infrastructure
     runs-on: ubuntu-latest
 
     env:
-      AWS_REGION: us-east-1
       TF_VAR_frontend_bucket_name: ${{ secrets.FRONTEND_BUCKET_NAME }}
       TF_VAR_custom_domain_name: ${{ secrets.CUSTOM_DOMAIN_NAME }}
-      TF_VAR_acm_cert_arn: ${{ secrets.CERTIFICATE_ARN }}
+      TF_VAR_acm_cert_arn: ${{ secrets.ACM_CERT_ARN }}
       TF_VAR_hosted_zone_id: ${{ secrets.HOSTED_ZONE_ID }}
+      TF_VAR_aws_region: us-east-1
+      AWS_REGION: us-east-1
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.6.6
+          terraform_version: 1.5.7
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/frontend
-
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: infrastructure/terraform/frontend
+        working-directory: ./infrastructure/terraform/frontend
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
-        working-directory: infrastructure/terraform/frontend
+        working-directory: ./infrastructure/terraform/frontend
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform/frontend
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        working-directory: ./infrastructure/terraform/frontend
