@@ -3,7 +3,7 @@ name: Terraform Deploy
 on:
   push:
     paths:
-      - '/infrastructure/terraform/frontend/**'
+      - 'infrastructure/terraform/frontend/**'
     branches:
       - main
   workflow_dispatch:
@@ -11,6 +11,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/frontend
 
     env:
       TF_VAR_frontend_bucket_name: ${{ secrets.FRONTEND_BUCKET_NAME }}
@@ -23,22 +27,20 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Terraform
+      - name: ⚙️ Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      - name: Terraform Init
+      - name: 🧩 Terraform Init
         run: terraform init
-        working-directory: ./infrastructure/terraform/frontend
 
-      - name: Terraform Plan
+      - name: 🧪 Terraform Plan
+        id: plan
         run: terraform plan -out=tfplan
-        working-directory: ./infrastructure/terraform/frontend
 
-      - name: Terraform Apply
+      - name: 🚀 Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./infrastructure/terraform/frontend
