@@ -1,44 +1,54 @@
 import boto3
 import json
-import logging
-import sys
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+ROLE_NAME = "GitHubActionsDeployRole"
+POLICY_NAME = "FrontendS3CloudFrontPolicy"
+BUCKET_NAME = "your-bucket-name"
+REGION = "us-east-1"
 
-# ---- Configuration ----
-AWS_REGION = "us-east-1"
-SECRET_ARN = "arn:aws:secretsmanager:us-east-1:263307268672:secret:lx-fta-auth-secrets-gTBwYG"
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3BucketAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": f"arn:aws:s3:::{BUCKET_NAME}"
+        },
+        {
+            "Sid": "S3ObjectAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": f"arn:aws:s3:::{BUCKET_NAME}/*"
+        },
+        {
+            "Sid": "CloudFrontInvalidation",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateInvalidation"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 
-def fetch_auth_secrets():
-    logging.info(f"Fetching secret from ARN: {SECRET_ARN} in region: {AWS_REGION}")
-
+def attach_inline_policy():
+    iam = boto3.client("iam", region_name=REGION)
     try:
-        client = boto3.client("secretsmanager", region_name=AWS_REGION)
-        response = client.get_secret_value(SecretId=SECRET_ARN)
-
-        secret_string = response.get("SecretString")
-        if not secret_string:
-            logging.error("SecretString not found in Secrets Manager response.")
-            sys.exit(1)
-
-        secrets = json.loads(secret_string)
-        logging.info("Successfully fetched and parsed secrets.")
-        return secrets
-
-    except client.exceptions.ResourceNotFoundException:
-        logging.error("The requested secret was not found.")
-    except client.exceptions.InvalidRequestException as e:
-        logging.error(f"Invalid request: {e}")
-    except client.exceptions.InvalidParameterException as e:
-        logging.error(f"Invalid parameter: {e}")
+        response = iam.put_role_policy(
+            RoleName=ROLE_NAME,
+            PolicyName=POLICY_NAME,
+            PolicyDocument=json.dumps(policy_document)
+        )
+        print("✅ IAM policy attached to role.")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        print("❌ Failed to attach policy:", str(e))
 
-    sys.exit(1)
-
-# Run when the script is executed
 if __name__ == "__main__":
-    secrets = fetch_auth_secrets()
-    print("\n✅ Secrets:")
-    print(json.dumps(secrets, indent=2))
+    attach_inline_policy()

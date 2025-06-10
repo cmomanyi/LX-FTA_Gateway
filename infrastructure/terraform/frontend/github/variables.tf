@@ -1,12 +1,11 @@
-provider "aws" {
-  region = var.aws_region
+variable "frontend_bucket_name" {}
+variable "custom_domain_name" {}
+variable "acm_cert_arn" {}
+variable "aws_region" {}
+variable "hosted_zone_id" {}
+variable "cloudfront_distribution_id" {
+  default = ""
 }
-
-variable "aws_region" {
-  type    = string
-  default = "us-east-1"
-}
-
-variable "frontend_bucket_name" {
-  type = string
+variable "create_route53_record" {
+  default = false
 }
