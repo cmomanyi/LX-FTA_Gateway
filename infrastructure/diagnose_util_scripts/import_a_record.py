@@ -1,43 +1,112 @@
-import subprocess
 import boto3
+import json
 
-# Configuration
-domain_name = "portal.lx-gateway.tech"
-hosted_zone_name = "lx-gateway.tech"
-record_type = "A"
-resource_name = "aws_route53_record.frontend_alias"
+iam = boto3.client('iam')
 
+policy_name = "GitHubActionsFullDeployPolicy"
+role_name = "GitHubActionsDeployRole"
 
-def get_hosted_zone_id(domain):
-    client = boto3.client("route53")
-    zones = client.list_hosted_zones_by_name(DNSName=domain, MaxItems="1")
-    if zones["HostedZones"]:
-        return zones["HostedZones"][0]["Id"].split("/")[-1]
-    else:
-        raise Exception(f"No hosted zone found for domain: {domain}")
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3FullAccess",
+            "Effect": "Allow",
+            "Action": ["s3:Get*", "s3:Put*", "s3:List*"],
+            "Resource": [
+                "arn:aws:s3:::lx-fta-frontend",
+                "arn:aws:s3:::lx-fta-frontend/*"
+            ]
+        },
+        {
+            "Sid": "CloudFrontPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:GetDistribution",
+                "cloudfront:TagResource",
+                "cloudfront:ListDistributions"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECRPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:PutImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:ListTagsForResource",
+                "ecr:DescribeRepositories"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeLogGroups",
+                "logs:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "IAMPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole",
+                "iam:ListRolePolicies"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ELBPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetGroupAttributes"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DynamoDBDescribe",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DescribeTable",
+                "dynamodb:DescribeContinuousBackups"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 
+# Create policy
+try:
+    print("📌 Creating policy...")
+    policy_response = iam.create_policy(
+        PolicyName=policy_name,
+        PolicyDocument=json.dumps(policy_document)
+    )
+    policy_arn = policy_response["Policy"]["Arn"]
+    print(f"✅ Policy created: {policy_arn}")
+except iam.exceptions.EntityAlreadyExistsException:
+    print(f"ℹ️ Policy already exists. Using existing ARN.")
+    policy_arn = f"arn:aws:iam::263307268672:policy/{policy_name}"  # Replace YOUR_ACCOUNT_ID
+except Exception as e:
+    print(f"❌ Failed to create policy: {e}")
+    exit(1)
 
-def import_record():
-    try:
-        print(f"🔍 Fetching hosted zone ID for {hosted_zone_name}...")
-        zone_id = get_hosted_zone_id(hosted_zone_name)
-        print(f"✅ Found Zone ID: {zone_id}")
-
-        import_id = f"{zone_id}_{domain_name}_{record_type}"
-        print(f"🚀 Importing Route53 A record to Terraform: {resource_name}...")
-        result = subprocess.run(
-            ["terraform", "import", resource_name, import_id],
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        print(f"✅ Terraform import completed:\n{result.stdout}")
-
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Terraform import failed:\n{e.stderr}")
-    except Exception as err:
-        print(f"❌ Error occurred: {err}")
-
-
-if __name__ == "__main__":
-    import_record()
+# Attach to role
+try:
+    print(f"🔗 Attaching policy to role: {role_name}")
+    iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
+    print("✅ Policy attached successfully.")
+except Exception as e:
+    print(f"❌ Failed to attach policy: {e}")

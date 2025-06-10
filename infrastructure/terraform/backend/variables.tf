@@ -60,4 +60,9 @@ variable "audit_log_range_key" {
   default     = "timestamp"
   description = "Sort key for the audit log table"
 }
+variable "jwt_secret" {
+  description = "JWT signing secret"
+  type        = string
+}
+
 
