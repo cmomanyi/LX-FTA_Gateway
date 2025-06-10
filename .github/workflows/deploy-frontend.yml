@@ -1,68 +1,43 @@
-name: Deploy Frontend to AWS
+# frontend-deploy.yml
+
+name: Frontend Deploy
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'frontend/**'
-      - 'infrastructure/terraform/frontend/github/**'
-      - '.github/workflows/deploy-frontend.yml'
-
-env:
-  AWS_REGION: us-east-1
-  FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
-  CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
-
-permissions:
-  id-token: write
-  contents: read
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
-        with:
-          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install and Build Frontend
-        working-directory: frontend
+      - name: Build Frontend
         run: |
-          npm ci
+          cd frontend
+          npm install
           npm run build
 
-      - name: Show build output
-        run: ls -R frontend/build
+      - name: Deploy to S3
+        run: aws s3 sync frontend/build s3://$S3_BUCKET_NAME --delete
+        env:
+          AWS_REGION: us-east-1
+          S3_BUCKET_NAME: lx-fta-frontend
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Sync to S3
-        run: |
-          aws s3 sync frontend/build s3://${{ env.FRONTEND_BUCKET_NAME }} --delete
-
-      - name: Invalidate CloudFront cache
+      - name: Invalidate CloudFront Cache (Optional)
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} \
-            --paths "/*" || echo "⚠️ CloudFront invalidation skipped or failed."
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.7
-
-      - name: Apply GitHub IAM Policies (Optional for Role Audit)
-        working-directory: infrastructure/terraform/frontend/github
-        run: |
-          terraform init
-          terraform apply -auto-approve -var="frontend_bucket_name=${{ env.FRONTEND_BUCKET_NAME }}"
+            --distribution-id $DISTRIBUTION_ID \
+            --paths "/*"
+        env:
+          DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
