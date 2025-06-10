@@ -1,42 +1,57 @@
 import boto3
-import json
+import sys
 
-# Replace with your actual values
-role_name = "GitHubActionsDeployRole"
-bucket_name = "lx-fta-frontend-gdwib5"
-policy_name = "FrontendS3AccessPolicy"
+# ----------- CONFIGURE THIS ----------- #
+domain_name = "portal.lx-gateway.tech"   # Your domain
+region = "us-east-1"                     # ACM region for CloudFront
+# -------------------------------------- #
 
-# Create IAM client
-iam = boto3.client("iam")
+acm = boto3.client("acm", region_name=region)
 
-# Define the inline policy
-policy_document = {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowS3AccessForFrontend",
-            "Effect": "Allow",
-            "Action": [
-                "s3:ListBucket",
-                "s3:GetObject",
-                "s3:PutObject",
-                "s3:DeleteObject"
-            ],
-            "Resource": [
-                f"arn:aws:s3:::{bucket_name}",
-                f"arn:aws:s3:::{bucket_name}/*"
-            ]
-        }
-    ]
-}
+def find_matching_cert(domain):
+    paginator = acm.get_paginator('list_certificates')
+    for page in paginator.paginate(CertificateStatuses=['ISSUED']):
+        for cert in page['CertificateSummaryList']:
+            if cert['DomainName'] == domain:
+                return cert['CertificateArn']
+    return None
 
-# Attach policy to IAM role
-try:
-    iam.put_role_policy(
-        RoleName=role_name,
-        PolicyName=policy_name,
-        PolicyDocument=json.dumps(policy_document)
-    )
-    print(f"✅ Successfully attached policy '{policy_name}' to role '{role_name}'")
-except Exception as e:
-    print(f"❌ Failed to attach policy: {e}")
+def validate_certificate(cert_arn):
+    try:
+        response = acm.describe_certificate(CertificateArn=cert_arn)
+        cert = response['Certificate']
+        print(f"\n✅ Found certificate for: {cert['DomainName']}")
+        print(f"   - Status: {cert['Status']}")
+        print(f"   - In Use: {'Yes' if cert.get('InUseBy') else 'No'}")
+        print(f"   - Issuer: {cert.get('Issuer')}")
+        print(f"   - Type: {cert.get('Type')}")
+        print(f"   - ARN: {cert['CertificateArn']}")
+        if cert['Status'] != 'ISSUED':
+            print("❌ Certificate exists but is not ISSUED.")
+        else:
+            print("✅ Certificate is valid and ready for CloudFront.")
+    except Exception as e:
+        print(f"❌ Error describing certificate: {e}")
+
+def request_new_certificate(domain):
+    print(f"Requesting a new certificate for {domain}...")
+    try:
+        response = acm.request_certificate(
+            DomainName=domain,
+            ValidationMethod='DNS',
+            IdempotencyToken='cloudfront-cert',
+            Options={'CertificateTransparencyLoggingPreference': 'ENABLED'}
+        )
+        print(f"✅ Certificate requested. ARN: {response['CertificateArn']}")
+    except Exception as e:
+        print(f"❌ Failed to request new certificate: {e}")
+
+if __name__ == "__main__":
+    cert_arn = find_matching_cert(domain_name)
+
+    if cert_arn:
+        validate_certificate(cert_arn)
+    else:
+        print(f"❌ No issued certificate found for {domain_name}.")
+        # Uncomment this line to auto-request one if missing:
+        # request_new_certificate(domain_name)
