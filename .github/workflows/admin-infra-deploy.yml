@@ -1,12 +1,17 @@
 name: Terraform Deploy
 
+#on:
+#  push:
+#    paths:
+#      - 'infrastructure/terraform/frontend/**'
+#    branches:
+#      - main
+#  workflow_dispatch:
+
+
 on:
   push:
-    paths:
-      - 'infrastructure/terraform/frontend/**'
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
   deploy:
