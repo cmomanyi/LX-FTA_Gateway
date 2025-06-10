@@ -6,7 +6,7 @@ import sys
 DOMAIN = "lx-gateway.tech"
 SUBDOMAIN = "portal.lx-gateway.tech"
 EXPECTED_NS = {
-    "ns-1670.awsdns-16.co.uk",
+    "ns-1670.awsdns-16.co.uk.",
     "ns-961.awsdns-56.net.",
     "ns-359.awsdns-44.com.",
     "ns-1413.awsdns-48.org.",

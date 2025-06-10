@@ -64,5 +64,10 @@ variable "jwt_secret" {
   description = "JWT signing secret"
   type        = string
 }
+variable "api_domain_name" {}
+variable "api_acm_cert_arn" {}
+variable "hosted_zone_id" {}
+variable "alb_arn" {}                  # Output of aws_lb.ecs_alb.arn
+variable "alb_listener_https_port" { default = 443 }
 
 

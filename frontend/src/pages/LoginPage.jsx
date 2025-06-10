@@ -14,7 +14,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const res = await fetch("https://ecs-alb-99933138.us-east-1.elb.amazonaws.com/login", {
+            const res = await fetch("https://api.lx-gateway.tech/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password }),
