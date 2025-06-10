@@ -67,7 +67,10 @@ variable "jwt_secret" {
 variable "api_domain_name" {}
 variable "api_acm_cert_arn" {}
 variable "hosted_zone_id" {}
-variable "alb_arn" {}                  # Output of aws_lb.ecs_alb.arn
+variable "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  type        = string
+}                 # Output of aws_lb.ecs_alb.arn
 variable "alb_listener_https_port" { default = 443 }
 
 

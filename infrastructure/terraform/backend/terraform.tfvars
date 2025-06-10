@@ -13,3 +13,4 @@ subnet_ids = [
   "subnet-0a089563aaf84e900",
   "subnet-0a43a8f0719857ca3"
   ]
+alb_arn = "arn:aws:elasticloadbalancing:us-east-1:263307268672:loadbalancer/app/ecs-alb/e9e12244e9f16dc1"
