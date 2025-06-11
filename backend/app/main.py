@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://portal.lx-gateway.tech"
+        "https://lx-gateway.tech"
         "http://localhost:3000"],  # Your frontend port
     allow_credentials=True,
     allow_methods=["*"],
