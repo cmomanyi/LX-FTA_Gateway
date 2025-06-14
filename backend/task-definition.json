@@ -1,0 +1,22 @@
+// backend/task-definition.json
+{
+  "family": "lx-fta-backend-task-def",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::263307268672:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend-container",
+      "image": "placeholder",  // will be replaced by GitHub Action
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}
