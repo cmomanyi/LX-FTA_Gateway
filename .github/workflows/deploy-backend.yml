@@ -13,7 +13,7 @@ env:
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
   ECS_SERVICE: lx-fta-backend-service
-  CONTAINER_NAME: backend-container  # Must match the ECS task definition
+  CONTAINER_NAME: fastapi  # Must match the ECS task definition
   TASK_DEF_FILE: backend/task-definition.json
 
 permissions:

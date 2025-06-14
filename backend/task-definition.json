@@ -4,7 +4,7 @@
   "executionRoleArn": "arn:aws:iam::263307268672:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
-      "name": "backend-container",
+      "name": "fastapi",
       "image": "placeholder",
       "portMappings": [
         {
