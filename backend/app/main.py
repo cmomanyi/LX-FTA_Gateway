@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 # from aws_services.aws_services import dynamodb_put_item
 from app.aws_services.aws_services import dynamodb_put_item
 from fastapi import FastAPI, Request
@@ -8,18 +9,22 @@ from app.auth.auth import router as auth_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
-# CORS settings for frontend (e.g. React dev server)
-from fastapi.middleware.cors import CORSMiddleware
-
+# ✅ CORS setup: allow only the frontend domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://portal.lx-gateway.tech"
-        "http://localhost:3000"],  # Your frontend port
+    allow_origins=["https://portal.lx-gateway.tech"],  # Frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 👇 Include the authentication router
+app.include_router(auth_router)
+
+# Optional health/root check
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "API is live"}
 
 app.include_router(auth_router)
 
