@@ -6,16 +6,12 @@ on:
       - main
     paths:
       - 'backend/**'
-      - 'infrastructure/terraform/backend/**'
       - '.github/workflows/deploy-backend.yml'
 
 env:
   AWS_REGION: us-east-1
   ECR_REPO: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
-  AUTH_SECRET_NAME: lx-fta-auth-secrets
-  SECRETSMANAGER_SECRET_ARN: arn:aws:secretsmanager:us-east-1:263307268672:secret:lx-fta-auth-secrets-gTBwYG
-  ACM_CERT_ARN: ${{ secrets.ACM_CERT_ARN }}
 
 permissions:
   id-token: write
@@ -49,22 +45,3 @@ jobs:
       - name: Push Docker image to ECR
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }}
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.7
-
-      - name: Deploy with Terraform
-        working-directory: infrastructure/terraform/backend
-        run: |
-          terraform init
-          terraform validate
-          terraform apply -auto-approve \
-          -var="image_tag=${{ env.TAG }}" \
-          -var="auth_secret_name=${{ env.AUTH_SECRET_NAME }}" \
-          -var="secretsmanager_secret_arn=${{ env.SECRETSMANAGER_SECRET_ARN }}" \
-          -var="acm_cert_arn=${{ secrets.ACM_CERT_ARN }}" \
-          -var="ecr_repo_name=${{ env.ECR_REPO }}" \
-          -var="ecs_cluster_name=${{ env.ECS_CLUSTER }}"
-
