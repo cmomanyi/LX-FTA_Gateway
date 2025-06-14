@@ -9,12 +9,9 @@ from app.auth.auth import router as auth_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
-
-
-# ✅ CORSMiddleware comes BEFORE including routers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://portal.lx-gateway.tech"],
+    allow_origins=["https://portal.lx-gateway.tech"],  # ✅ EXACT origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
