@@ -35,10 +35,13 @@ jobs:
       - name: Deploy to S3
         run: aws s3 sync frontend/build s3://lx-fta-frontend --delete --exact-timestamps
 
-      - name: Invalidate CloudFront Cache (Optional)
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+      - name: Invalidate CloudFront Cache (if DISTRIBUTION_ID is set)
         run: |
-          echo "🔄 Invalidating CloudFront cache..."
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
+          if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            echo "🔄 Invalidating CloudFront cache..."
+            aws cloudfront create-invalidation \
+              --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+              --paths "/*"
+          else
+            echo "⚠️ CLOUDFRONT_DISTRIBUTION_ID not set. Skipping invalidation."
+          fi
