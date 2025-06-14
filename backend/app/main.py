@@ -21,6 +21,12 @@ app.add_middleware(
 # Include routes after CORS
 app.include_router(auth_router)
 
+
+@app.options("/login")
+def handle_options():
+    return {"message": "OPTIONS received"}
+
+
 @app.get("/")
 def root():
     return {"message": "API is live"}
