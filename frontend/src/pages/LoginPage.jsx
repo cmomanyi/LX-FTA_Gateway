@@ -14,7 +14,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const res = await fetch("https://portal.lx-gateway.tech/login", {
+            const res = await fetch("https://api.lx-gateway.tech/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password }),
