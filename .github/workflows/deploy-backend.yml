@@ -1,66 +1,59 @@
-name: Deploy Backend to AWS
+name: Deploy FastAPI Backend
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPO: lx-fta-backend
+  ECR_REGISTRY: 263307268672.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: lx-fta-backend
   ECS_CLUSTER: lx-fta-cluster
-  ECS_SERVICE: lx-fta-backend-service
-  CONTAINER_NAME: fastapi  # Must match the ECS task definition
-  TASK_DEF_FILE: backend/task-definition.json
-
-permissions:
-  id-token: write
-  contents: read
+  ECS_SERVICE: backend-service
+  CONTAINER_NAME: fastapi
+  TASK_DEFINITION_FILE: ecs/task-definition.json
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Generate image tag
-        id: tag
-        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
-
-      - name: Login to Amazon ECR
+      - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build and tag Docker image
-        run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }} backend/
+      - name: Set IMAGE_TAG
+        id: image_tag
+        run: echo \"IMAGE_TAG=${{ github.sha }}\" >> $GITHUB_ENV
 
-      - name: Push Docker image to ECR
+      - name: Build and push Docker image
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }}
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Render new ECS task definition
-        id: render-task-def
+      - name: Render ECS task definition
+        id: render-task
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.TASK_DEF_FILE }}
+          task-definition: ${{ env.TASK_DEFINITION_FILE }}
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ env.TAG }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-      - name: Deploy to ECS
+      - name: Deploy updated task to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          task-definition: ${{ steps.render-task.outputs.task-definition }}
           wait-for-service-stability: true
