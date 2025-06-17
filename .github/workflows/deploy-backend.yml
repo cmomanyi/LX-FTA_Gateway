@@ -63,4 +63,36 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           service: ${{ env.ECS_SERVICE }}
           task-definition: ${{ steps.render-task.outputs.task-definition }}
-          wait-for-service-stability: true
+          wait-for-service-stability: false  # We will do a custom wait below
+
+      - name: Cleanup old ECR images (keep last 5)
+        run: |
+          IMAGE_TAGS=$(aws ecr list-images \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION \
+            --query 'imageIds[?imageTag!=`null`]' \
+            --output json | jq -r '.[] | .imageTag' | sort -r)
+
+          KEEP_TAGS=$(echo "$IMAGE_TAGS" | head -n 5)
+          DELETE_TAGS=$(echo "$IMAGE_TAGS" | tail -n +6)
+
+          echo "✅ Keeping:"
+          echo "$KEEP_TAGS"
+          echo "🧹 Deleting:"
+          echo "$DELETE_TAGS"
+
+          for tag in $DELETE_TAGS; do
+            aws ecr batch-delete-image \
+              --repository-name $ECR_REPOSITORY \
+              --region $AWS_REGION \
+              --image-ids imageTag=$tag || true
+          done
+
+      - name: Check ECS service health
+        run: |
+          echo "⏳ Waiting for ECS service to be stable..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE \
+            --region $AWS_REGION
+          echo "✅ ECS service is stable!"
