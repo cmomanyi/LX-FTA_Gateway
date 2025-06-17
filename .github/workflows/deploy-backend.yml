@@ -30,23 +30,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        run: aws ecr get-login-password | docker login --username AWS $ECR_REGISTRY
-
       - name: Set image tag
-        id: vars
+        id: tag
         run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-      - name: Build and Push Docker image
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Build and push Docker image to ECR
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Fill in the new image ID in the ECS task definition
+      - name: Replace image tag in task definition
         run: |
           sed -i "s|IMAGE_TAG|$IMAGE_TAG|g" $TASK_DEFINITION_FILE
 
-      - name: Register new task definition
+      - name: Register updated ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -55,8 +57,8 @@ jobs:
       - name: Deploy ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
           task-definition: ${{ steps.task-def.outputs.task-definition-arn }}
 
       - name: Wait for ECS service to stabilize
@@ -67,5 +69,3 @@ jobs:
             --services $ECS_SERVICE \
             --region $AWS_REGION
           echo "✅ ECS service is stable!"
-
-# 🛑 NOTE: No image deletion step — keep the image so ECS can pull it
