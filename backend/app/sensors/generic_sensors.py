@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request, APIRouter
 
 import random
 
-from backend.app.model.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+from app.model.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 
 router = APIRouter()
 
