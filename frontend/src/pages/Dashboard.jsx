@@ -11,10 +11,10 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchUser = async () => {
             const token = localStorage.getItem('token');
-            if (!token) return navigate('/');
+            if (!token) return navigate('/login');
 
             try {
-                const response = await axios.get('http://127.0.0.1:8000/protected', {
+                const response = await axios.get('https://api.lx-gateway.tech/protected', {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },

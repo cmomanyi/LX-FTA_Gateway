@@ -6,7 +6,7 @@
  * @returns {Promise<Object>}
  */
 export const fetchAllSoilSensors = async () => {
-    const response = await fetch("http://localhost:8000/api/soil");
+    const response = await fetch("https://api.lx-gateway.tech/api/soil");
     return response.json();
 };
 
@@ -15,7 +15,7 @@ export const fetchAllSoilSensors = async () => {
  * @returns {Promise<Object>}
  */
 export const fetchAllAtmosphericSensors = async () => {
-    const response = await fetch("http://localhost:8000/api/atmosphere");
+    const response = await fetch("https://api.lx-gateway.tech/atmosphere");
     return response.json();
 };
 
@@ -24,7 +24,7 @@ export const fetchAllAtmosphericSensors = async () => {
  * @returns {Promise<Object>}
  */
 export const fetchAllWaterSensors = async () => {
-    const response = await fetch("http://localhost:8000/api/water");
+    const response = await fetch("https://api.lx-gateway.tech/api/water");
     return response.json();
 };
 
@@ -33,11 +33,11 @@ export const fetchAllWaterSensors = async () => {
  * @returns {Promise<Object>}
  */
 export const fetchAllPlantSensors = async () =>
-    (await fetch("http://127.0.0.1:8000/api/plant")).json();
+    (await fetch("https://api.lx-gateway.tech/api/plant")).json();
 
 
 /**
  * Fetch data from the Threat sensor endpoint
  * @returns {Promise<Object>}
  */
-export const fetchAllThreatSensors = async () => (await fetch("http://127.0.0.1:8000/api/threat")).json();
+export const fetchAllThreatSensors = async () => (await fetch("https://api.lx-gateway.tech/api/threat")).json();
