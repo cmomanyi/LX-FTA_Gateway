@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "fastapi",
-      "image": "<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/lx-fta-backend:latest",
+      "image": "263307268672.dkr.ecr.us-east-1.amazonaws.com/lx-fta-backend:latest",
       "essential": true,
       "portMappings": [
         {
