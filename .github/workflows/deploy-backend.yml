@@ -21,74 +21,45 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to Amazon ECR
+        run: aws ecr get-login-password | docker login --username AWS $ECR_REGISTRY
 
-      - name: Set IMAGE_TAG
-        run: |
-          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
-          echo "Using IMAGE_TAG=${GITHUB_SHA}"
+      - name: Set image tag
+        id: vars
+        run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-      - name: Debug ENV Vars
+      - name: Build and Push Docker image
         run: |
-          echo "ECR_REGISTRY: $ECR_REGISTRY"
-          echo "ECR_REPOSITORY: $ECR_REPOSITORY"
-          echo "IMAGE_TAG: $IMAGE_TAG"
-
-      - name: Build and push Docker image
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Render ECS task definition
-        id: render-task
+      - name: Fill in the new image ID in the ECS task definition
+        run: |
+          sed -i "s|IMAGE_TAG|$IMAGE_TAG|g" $TASK_DEFINITION_FILE
+
+      - name: Register new task definition
+        id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.TASK_DEFINITION_FILE }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          task-definition: $TASK_DEFINITION_FILE
 
-      - name: Deploy to ECS
+      - name: Deploy ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          cluster: ${{ env.ECS_CLUSTER }}
           service: ${{ env.ECS_SERVICE }}
-          task-definition: ${{ steps.render-task.outputs.task-definition }}
-          wait-for-service-stability: false  # We will do a custom wait below
+          cluster: ${{ env.ECS_CLUSTER }}
+          task-definition: ${{ steps.task-def.outputs.task-definition-arn }}
 
-      - name: Cleanup old ECR images (keep last 5)
-        run: |
-          IMAGE_TAGS=$(aws ecr list-images \
-            --repository-name $ECR_REPOSITORY \
-            --region $AWS_REGION \
-            --query 'imageIds[?imageTag!=`null`]' \
-            --output json | jq -r '.[] | .imageTag' | sort -r)
-
-          KEEP_TAGS=$(echo "$IMAGE_TAGS" | head -n 5)
-          DELETE_TAGS=$(echo "$IMAGE_TAGS" | tail -n +6)
-
-          echo "✅ Keeping:"
-          echo "$KEEP_TAGS"
-          echo "🧹 Deleting:"
-          echo "$DELETE_TAGS"
-
-          for tag in $DELETE_TAGS; do
-            aws ecr batch-delete-image \
-              --repository-name $ECR_REPOSITORY \
-              --region $AWS_REGION \
-              --image-ids imageTag=$tag || true
-          done
-
-      - name: Check ECS service health
+      - name: Wait for ECS service to stabilize
         run: |
           echo "⏳ Waiting for ECS service to be stable..."
           aws ecs wait services-stable \
@@ -96,3 +67,5 @@ jobs:
             --services $ECS_SERVICE \
             --region $AWS_REGION
           echo "✅ ECS service is stable!"
+
+# 🛑 NOTE: No image deletion step — keep the image so ECS can pull it
