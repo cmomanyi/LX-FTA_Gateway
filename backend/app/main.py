@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-# from aws_services.aws_services import dynamodb_put_item
+# from utils.utils import dynamodb_put_item
 from app.aws_services.aws_services import dynamodb_put_item
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError

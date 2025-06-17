@@ -4,7 +4,6 @@ import boto3
 from botocore.exceptions import ClientError
 from time import sleep
 from seed_sensors import seed_all
-
 dynamodb = boto3.client("dynamodb", region_name="us-east-1")
 
 TABLES = {
