@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from app.auth.auth import router as auth_router
+from app.sensors.generic_sensors import router as generic_sensors_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
@@ -19,6 +20,7 @@ app.add_middleware(
 
 # ✅ Register routes AFTER middleware
 app.include_router(auth_router)
+app.include_router(generic_sensors_router)
 
 @app.get("/health")
 def health():
