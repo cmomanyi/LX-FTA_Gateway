@@ -15,7 +15,7 @@ export const fetchAllSoilSensors = async () => {
  * @returns {Promise<Object>}
  */
 export const fetchAllAtmosphericSensors = async () => {
-    const response = await fetch("https://api.lx-gateway.tech/atmosphere");
+    const response = await fetch("https://api.lx-gateway.tech/api/atmosphere");
     return response.json();
 };
 

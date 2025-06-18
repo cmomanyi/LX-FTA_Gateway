@@ -1,52 +1,50 @@
-# app/utils/create_tables_and_seed.py
-
 import boto3
-from botocore.exceptions import ClientError
-from time import sleep
-from seed_sensors import seed_all
+import json
 
-dynamodb = boto3.client("dynamodb", region_name="us-east-1")
+iam = boto3.client("iam")
+sts = boto3.client("sts")
 
-TABLES = {
-    "soil": "lx-fta-soil-data",
-    "atmospheric": "lx-fta-atmospheric-data",
-    "water": "lx-fta-water-data",
-    "threat": "lx-fta-threat-data",
-    "plant": "lx-fta-plant-data"
+# Fallback default region if boto3 returns None
+region = boto3.session.Session().region_name or "us-east-1"
+account_id = sts.get_caller_identity()["Account"]
+
+tables = [
+    "lx-fta-soil-data",
+    "lx-fta-atmospheric-data",
+    "lx-fta-water-data",
+    "lx-fta-threat-data",
+    "lx-fta-plant-data",
+    "lx-fta-audit-logs"
+]
+
+table_arns = [f"arn:aws:dynamodb:{region}:{account_id}:table/{t}" for t in tables]
+
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowReadWriteScan",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:Scan"
+            ],
+            "Resource": table_arns
+        }
+    ]
 }
 
-def table_exists(table_name):
-    try:
-        dynamodb.describe_table(TableName=table_name)
-        return True
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            return False
-        raise
+policy_json = json.dumps(policy_document, indent=2)
 
-def create_table_if_not_exists(table_name):
-    if table_exists(table_name):
-        print(f"✔️ Table '{table_name}' already exists.")
-        return
+print("🔍 Final policy to be applied:")
+print(policy_json)
 
-    print(f"⏳ Creating table '{table_name}'...")
-    dynamodb.create_table(
-        TableName=table_name,
-        KeySchema=[{"AttributeName": "sensor_id", "KeyType": "HASH"}],
-        AttributeDefinitions=[{"AttributeName": "sensor_id", "AttributeType": "S"}],
-        BillingMode="PAY_PER_REQUEST"
-    )
+response = iam.put_role_policy(
+    RoleName="ecsTaskExecutionRole",
+    PolicyName="AllowSensorDynamoDBAccess",
+    PolicyDocument=policy_json
+)
 
-    # Wait for table to become active
-    waiter = boto3.client("dynamodb", region_name="us-east-1").get_waiter("table_exists")
-    waiter.wait(TableName=table_name)
-    print(f"✅ Table '{table_name}' created and ready.")
-
-def create_all_tables():
-    for sensor_type, table_name in TABLES.items():
-        create_table_if_not_exists(table_name)
-
-if __name__ == "__main__":
-    create_all_tables()
-    print("🚀 Proceeding to seed sensor data...\n")
-    seed_all()
+print("✅ Policy successfully applied.")
