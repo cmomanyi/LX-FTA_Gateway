@@ -1,18 +1,21 @@
-# app/utils/create_tables_and_seed.py
-
 import boto3
 from botocore.exceptions import ClientError
-from time import sleep
-from seed_sensors import seed_all
-dynamodb = boto3.client("dynamodb", region_name="us-east-1")
 
-TABLES = {
-    "soil": "lx-fta-soil-data",
-    "atmospheric": "lx-fta-atmospheric-data",
-    "water": "lx-fta-water-data",
-    "threat": "lx-fta-threat-data",
-    "plant": "lx-fta-plant-data"
+from app.utils.seed_sensors import seed_all
+
+# Use local AWS credentials
+session = boto3.Session(profile_name="default", region_name="us-east-1")
+dynamodb = session.client("dynamodb")
+
+# Table names mapped to primary key
+TABLE_DEFINITIONS = {
+    "lx-fta-soil-data": "sensor_id",
+    "lx-fta-atmospheric-data": "sensor_id",
+    "lx-fta-water-data": "sensor_id",
+    "lx-fta-threat-data": "sensor_id",
+    "lx-fta-plant-data": "sensor_id",
 }
+
 
 def table_exists(table_name):
     try:
@@ -21,31 +24,37 @@ def table_exists(table_name):
     except ClientError as e:
         if e.response["Error"]["Code"] == "ResourceNotFoundException":
             return False
-        raise
+        else:
+            raise
 
-def create_table_if_not_exists(table_name):
-    if table_exists(table_name):
-        print(f"✔️ Table '{table_name}' already exists.")
-        return
 
-    print(f"⏳ Creating table '{table_name}'...")
+def create_table(table_name, partition_key):
+    print(f"🔧 Creating table {table_name}...")
     dynamodb.create_table(
         TableName=table_name,
-        KeySchema=[{"AttributeName": "sensor_id", "KeyType": "HASH"}],
-        AttributeDefinitions=[{"AttributeName": "sensor_id", "AttributeType": "S"}],
-        BillingMode="PAY_PER_REQUEST"
+        KeySchema=[
+            {"AttributeName": partition_key, "KeyType": "HASH"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": partition_key, "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
     )
 
     # Wait for table to become active
-    waiter = boto3.client("dynamodb", region_name="us-east-1").get_waiter("table_exists")
+    waiter = dynamodb.get_waiter("table_exists")
     waiter.wait(TableName=table_name)
-    print(f"✅ Table '{table_name}' created and ready.")
+    print(f"✅ Table {table_name} is ready.")
 
-def create_all_tables():
-    for sensor_type, table_name in TABLES.items():
-        create_table_if_not_exists(table_name)
+
+def create_tables_if_not_exist():
+    for table_name, partition_key in TABLE_DEFINITIONS.items():
+        if table_exists(table_name):
+            print(f"✔️ Table {table_name} already exists.")
+        else:
+            create_table(table_name, partition_key)
+
 
 if __name__ == "__main__":
-    create_all_tables()
-    print("🚀 Proceeding to seed sensor data...\n")
+    create_tables_if_not_exist()
     seed_all()

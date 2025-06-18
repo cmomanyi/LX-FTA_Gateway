@@ -26,7 +26,25 @@ def get_all_items(model: Type, sensor_type: str) -> List:
     return [model(**item) for item in items]
 
 
-def put_item(model_instance, sensor_type: str):
-    table = get_table(sensor_type)
-    item = model_instance.dict()
-    table.put_item(Item=float_to_decimal(item))
+#
+# def put_item(model_instance, sensor_type: str):
+#     table = get_table(sensor_type)
+#     item = model_instance.dict()
+#     table.put_item(Item=float_to_decimal(item))
+
+def put_item(data_model, sensor_type: str, dynamodb_client):
+    table_map = {
+        "soil": "lx-fta-soil-data",
+        "atmospheric": "lx-fta-atmospheric-data",
+        "water": "lx-fta-water-data",
+        "threat": "lx-fta-threat-data",
+        "plant": "lx-fta-plant-data"
+    }
+
+    table_name = table_map[sensor_type]
+    item = {
+        k: {"N" if isinstance(v, float) else "S": str(v)}
+        for k, v in data_model.dict().items()
+    }
+
+    dynamodb_client.put_item(TableName=table_name, Item=item)
