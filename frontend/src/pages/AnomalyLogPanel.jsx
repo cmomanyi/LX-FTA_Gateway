@@ -6,7 +6,7 @@ const AnomalyLogPanel = () => {
     const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
-        fetch("http://localhost:8000/log/anomalies")
+        fetch("https://api.lx-gateway.tech/log/anomalies")
             .then(res => res.json())
             .then(setLogs)
             .catch(console.error);

@@ -34,7 +34,7 @@ const SensorSecurityDashboard = () => {
     useEffect(() => {
         const fetchAuditTrail = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/logs");
+                const res = await fetch("https://api.lx-gateway.tech/api/logs");
                 const data = await res.json();
                 setAuditTrail(data.logs || []);
             } catch (err) {
@@ -61,7 +61,7 @@ const SensorSecurityDashboard = () => {
 
     const handleTrigger = async () => {
         try {
-            const res = await fetch(`http://localhost:8000/trigger/${selectedAttack}`);
+            const res = await fetch(`https://api.lx-gateway.tech/trigger/${selectedAttack}`);
             const data = await res.json();
             alert(data.status || "Attack simulated");
         } catch (err) {

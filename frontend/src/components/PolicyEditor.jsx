@@ -6,7 +6,7 @@ const PolicyEditor = () => {
 
     const handleAction = async (endpoint, label) => {
         try {
-            const res = await fetch(`http://localhost:8000/api/policy/${endpoint}`, {
+            const res = await fetch(`https://api.lx-gateway.tech/api/policy/${endpoint}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

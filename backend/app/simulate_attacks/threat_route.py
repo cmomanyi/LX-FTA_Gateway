@@ -8,14 +8,15 @@ from typing import Dict, List
 import numpy as np
 from fastapi import APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect
 
-from FirmwareUpload import FirmwareUpload
-from attack_log import get_attack_logs, log_attack
-from attack_request import AttackRequest
-from ml_evasion_detector import SensorReading, model
-from replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
-from spoofing_threat import SpoofingRequest
+from app.simulate_attacks.FirmwareUpload import FirmwareUpload
+from app.simulate_attacks.attack_log import get_attack_logs, log_attack
+from app.simulate_attacks.attack_request import AttackRequest
+from app.simulate_attacks.ml_evasion_detector import SensorReading, model
+from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
+from app.simulate_attacks.spoofing_threat import SpoofingRequest
 
 router = APIRouter()
+
 request_log = deque(maxlen=1000)  # Sliding window to check frequency
 
 # Dynamic pattern: e.g., soil_01, water_03, threat_05

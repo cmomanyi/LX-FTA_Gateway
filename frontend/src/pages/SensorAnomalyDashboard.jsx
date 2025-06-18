@@ -65,7 +65,7 @@ const SensorAnomalyDashboard = () => {
 
     useEffect(() => {
         const token = localStorage.getItem("token");
-        const socket = new WebSocket(`ws://localhost:8000/ws/${sensorType}?token=${token}`);
+        const socket = new WebSocket(`ws://api.lx-gateway.tech/ws/${sensorType}?token=${token}`);
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -99,7 +99,7 @@ const SensorAnomalyDashboard = () => {
                 };
                 setLogs((prev) => [...prev, anomaly]);
 
-                fetch("http://localhost:8000/log/anomaly", {
+                fetch("https://api.lx-gateway.tech/log/anomaly", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(anomaly),

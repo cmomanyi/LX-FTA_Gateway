@@ -6,7 +6,7 @@ const AnomalyLogViewer = () => {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await fetch("http://localhost:8000/api/anomalies", {
+                const res = await fetch("https://portal.lx-gateway.tech/api/anomalies", {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem("token")}`,
                     },

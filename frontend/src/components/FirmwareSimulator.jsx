@@ -16,7 +16,7 @@ const FirmwareSimulator = () => {
         formData.append("simulate_tamper", tamper);
 
         try {
-            const res = await fetch("http://localhost:8000/api/firmware/update", {
+            const res = await fetch("https://api.lx-gateway.tech/api/firmware/update", {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("token")}`,

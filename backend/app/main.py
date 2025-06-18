@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 
 from app.auth.auth import router as auth_router
 from app.sensors.generic_sensors import router as generic_sensors_router
-from app.simulate_attacks import router as simulate_attacks_router
+from app.simulate_attacks.threat_route import router as simulate_attacks_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 

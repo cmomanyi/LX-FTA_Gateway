@@ -10,7 +10,7 @@ const AttackSimulationDashboard = () => {
 
     const fetchLog = async () => {
         try {
-            const response = await axios.get("http://localhost:8000/attack-log");
+            const response = await axios.get("https://api.lx-gateway.tech/attack-log");
             setAttackLog(response.data);
         } catch (error) {
             console.error("Failed to fetch log", error);
@@ -22,7 +22,7 @@ const AttackSimulationDashboard = () => {
         try {
             const form = new FormData();
             form.append("attack_type", attackType);
-            const response = await axios.post("http://localhost:8000/simulate-attack", form);
+            const response = await axios.post("https://api.lx-gateway.tech/simulate-attack", form);
             setAttackResult(response.data);
             fetchLog();
         } catch (error) {
