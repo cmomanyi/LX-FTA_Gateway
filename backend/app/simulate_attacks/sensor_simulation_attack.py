@@ -1,0 +1,201 @@
+import boto3
+from fastapi import APIRouter, HTTPException, Request
+from datetime import datetime, timedelta
+from collections import defaultdict, deque
+from typing import Dict, List
+import hashlib
+import random
+import numpy as np
+
+from app.simulate_attacks.attack_log import log_attack
+from app.simulate_attacks.attack_request import AttackRequest
+from app.simulate_attacks.FirmwareUpload import FirmwareUpload
+from app.simulate_attacks.ml_evasion_detector import SensorReading, model
+from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
+from app.simulate_attacks.spoofing_threat import SpoofingRequest
+
+router = APIRouter()
+
+# Initialize DynamoDB client
+DYNAMODB_REGION = "us-east-1"
+dynamodb = boto3.resource("dynamodb", region_name=DYNAMODB_REGION)
+
+
+def fetch_all_sensor_ids():
+    tables = [
+        "lx-fta-soil-data",
+        "lx-fta-atmospheric-data",
+        "lx-fta-water-data",
+        "lx-fta-threat-data",
+        "lx-fta-plant-data"
+    ]
+    sensor_ids = set()
+    for table_name in tables:
+        try:
+            table = dynamodb.Table(table_name)
+            response = table.scan(ProjectionExpression="sensor_id")
+            for item in response.get("Items", []):
+                if "sensor_id" in item:
+                    sensor_ids.add(item["sensor_id"])
+        except Exception as e:
+            print(f"Failed to fetch from {table_name}: {e}")
+    return list(sensor_ids)
+
+
+@router.get("/api/sensor-types")
+def get_sensor_types():
+    sensor_ids = fetch_all_sensor_ids()
+    return {
+        "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
+        "sensor_ids": sensor_ids
+    }
+
+
+def validate_sensor_id(sensor_id: str):
+    valid_ids = fetch_all_sensor_ids()
+    if sensor_id not in valid_ids:
+        raise HTTPException(status_code=400, detail="Invalid sensor ID")
+    return True
+
+
+# ---------------- DDoS ----------------
+ddos_window: Dict[str, List[datetime]] = defaultdict(list)
+
+
+@router.post("/sensor/threat/ddos")
+async def detect_ddos(request: Request):
+    data = await request.json()
+    sensor_id = data.get("sensor_id")
+    threshold = data.get("threshold", 10)
+    validate_sensor_id(sensor_id)
+    now = datetime.utcnow()
+    ddos_window[sensor_id].append(now)
+    ddos_window[sensor_id] = [t for t in ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
+    request_count = len(ddos_window[sensor_id])
+
+    if request_count > threshold:
+        message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
+        log_attack(sensor_id, "ddos", message, severity="High")
+        return {
+            "timestamp": now.isoformat(),
+            "sensor_id": sensor_id,
+            "attack_type": "ddos",
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+
+    message = f"No DDoS detected — {request_count}/{threshold}"
+    log_attack(sensor_id, "ddos", message, severity="None")
+    return {
+        "status": message,
+        "message": message,
+        "severity": "None",
+        "blocked": False
+    }
+
+
+# ---------------- Firmware Injection ----------------
+@router.post("/api/detect/firmware_injection")
+async def detect_firmware_injection(data: FirmwareUpload):
+    validate_sensor_id(data.sensor_id)
+    if not data.firmware_signature or data.firmware_signature != "valid_signature_123":
+        message = "🔴 Firmware Rejected – Signature Invalid"
+        alert = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensor_id": data.sensor_id,
+            "attack_type": "firmware_injection",
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+        log_attack(data.sensor_id, "firmware_injection", message, severity="High")
+        return alert
+
+    return {
+        "status": "✅ Firmware accepted and verified",
+        "severity": "None",
+        "blocked": False
+    }
+
+
+# ---------------- Spoofing ----------------
+@router.post("/api/validate")
+def spoofing_protection(req: SpoofingRequest):
+    sensor_id = req.sensor_id
+    validate_sensor_id(sensor_id)
+    expected = hashlib.sha256((sensor_id + req.payload).encode()).hexdigest()
+    if req.ecc_signature != expected:
+        message = "🔴 Spoofing Detected – ECC Signature Mismatch"
+        log_attack(sensor_id, "spoofing", message, severity="High")
+        return {
+            "status": message,
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+
+    message = "✅ Signature Verified"
+    log_attack(sensor_id, "spoofing", message, severity="None")
+    return {
+        "status": message,
+        "message": message,
+        "severity": "None",
+        "blocked": False
+    }
+
+
+# ---------------- Replay Attack ----------------
+@router.post("/api/replay-protect")
+def replay_protection(req: ReplayRequest):
+    sensor_id = req.sensor_id
+    validate_sensor_id(sensor_id)
+    if req.nonce in USED_NONCES:
+        message = "🔴 Replay Detected – Duplicate Nonce"
+        log_attack(sensor_id, "replay", message, severity="High")
+        return {
+            "status": message,
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+    if not is_fresh_timestamp(req.timestamp):
+        raise HTTPException(status_code=400, detail="Stale timestamp")
+
+    USED_NONCES.add(req.nonce)
+    message = "✅ Payload Accepted – Fresh Nonce"
+    log_attack(sensor_id, "replay", message, severity="None")
+    return {
+        "status": message,
+        "message": message,
+        "severity": "None",
+        "blocked": False
+    }
+
+
+# ---------------- Drift Detection ----------------
+@router.post("/api/drift-detect")
+def detect_drift(data: SensorReading):
+    sensor_id = data.sensor_id
+    validate_sensor_id(sensor_id)
+    readings = np.array(data.values).reshape(-1, 1)
+    preds = model.predict(readings)
+
+    if -1 in preds:
+        message = "🔴 ML Evasion Attempt – Drift Behavior Detected"
+        log_attack(sensor_id, "drift", message, severity="High")
+        return {
+            "status": message,
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+
+    message = "✅ Sensor Stable – No Drift"
+    log_attack(sensor_id, "drift", message, severity="None")
+    return {
+        "status": message,
+        "message": message,
+        "severity": "None",
+        "blocked": False
+    }

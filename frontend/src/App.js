@@ -12,7 +12,8 @@ import AttackSimulationDashboard from "./pages/AttackSimulationDashboard";
 import ShapAttackDashboard from "./pages/ShapAttackDashboard";
 import Unauthorized from "./pages/Unauthorized";
 import ThreatDashboard from "./pages/ThreatDashboard";
-import AttackAuditDashboard from "./pages/AttackAuditDashboard"; // create this component for post-login redirect
+import SensorSimulationAttackDashboard from "./pages/SensorSimulationAttackDashboard";
+// import AttackAuditDashboard from "./pages/AttackAuditDashboard"; // create this component for post-login redirect
 
 function App() {
   return (
@@ -30,7 +31,9 @@ function App() {
               <Route path="/attacksimulationdashboard" element={<AttackSimulationDashboard />} />
               <Route path="/Shapdashboard" element={<ShapAttackDashboard />} />
               <Route path="/attackV2" element={<ThreatDashboard />} />
-              <Route path ="/attacksimulate" element={<AttackAuditDashboard/>}/>
+
+
+              <Route path ="/simulateattacks" element={<SensorSimulationAttackDashboard/>}/>
           </Routes>
       </Router>
 

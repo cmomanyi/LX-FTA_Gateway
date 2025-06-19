@@ -45,7 +45,7 @@ const SensorSecurityDashboard = () => {
         fetchAuditTrail();
         const interval = setInterval(fetchAuditTrail, 10000);
 
-        const ws = new WebSocket("ws://localhost:8000/ws/alerts");
+        const ws = new WebSocket("ws://api.lx-gateway.tech//ws/alerts");
 
         ws.onmessage = (event) => {
             const alert = JSON.parse(event.data);

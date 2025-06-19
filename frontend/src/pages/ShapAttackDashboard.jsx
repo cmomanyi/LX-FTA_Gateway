@@ -11,7 +11,7 @@ const ShapAttackDashboard = () => {
 
     const fetchLog = async () => {
         try {
-            const response = await axios.get("hhttps://api.lx-gateway.tech/attack-log");
+            const response = await axios.get("https://api.lx-gateway.tech/attack-log");
             setAttackLog(response.data);
         } catch (error) {
             console.error("Failed to fetch log", error);

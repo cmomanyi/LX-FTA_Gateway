@@ -1,9 +1,12 @@
+import traceback
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
+from starlette.responses import JSONResponse
 
 from app.auth.auth import router as auth_router
 from app.sensors.generic_sensors import router as generic_sensors_router
-from app.simulate_attacks.threat_route import router as simulate_attacks_router
+from app.simulate_attacks.sensor_simulation_attack import router as simulate_attacks_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
@@ -46,3 +49,15 @@ def handle_options():
 @app.get("/")
 def root():
     return {"message": "API is live"}
+
+@app.middleware("http")
+async def log_exceptions(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        print(f"🚨 Unhandled Exception: {e}")
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error"}
+        )
