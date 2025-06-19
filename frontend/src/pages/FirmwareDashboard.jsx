@@ -12,7 +12,7 @@ const FirmwareDashboard = () => {
         firmwareVersion: "",
         issuerId: "Trusted_CA_01",
         deploymentDate: new Date().toISOString().split("T")[0],
-        attemptDowngrade: false,
+        attemptDowngrade: false
     });
 
     const [selectedFile, setSelectedFile] = useState(null);
@@ -20,30 +20,35 @@ const FirmwareDashboard = () => {
     const [firmwareLogs, setFirmwareLogs] = useState([]);
     const [deviceStatus, setDeviceStatus] = useState(null);
 
-    const fullSensorId = `${formData.sensorType}_${formData.sensorId}`;
-
     useEffect(() => {
         fetchFirmwareLogs();
     }, []);
 
     useEffect(() => {
-        if (!fullSensorId) return;
-        axios.get(`https://api.lx-gateway.tech/api/firmware/versions/${fullSensorId}`)
-            .then((res) => {
-                setDeviceStatus(res.data);
-                if (res.data.last) {
-                    setFormData((prev) => ({ ...prev, firmwareVersion: res.data.last }));
-                }
-            })
-            .catch(() => setDeviceStatus(null));
+        const fullSensorId = `${formData.sensorType}_${formData.sensorId}`;
+
+        if (fullSensorId) {
+            axios
+                .get(`https://api.lx-gateway.tech/api/firmware/versions/${fullSensorId}`)
+                .then((res) => {
+                    setDeviceStatus(res.data);
+                    if (res.data.last) {
+                        setFormData((prev) => ({
+                            ...prev,
+                            firmwareVersion: res.data.last
+                        }));
+                    }
+                })
+                .catch(() => setDeviceStatus(null));
+        }
     }, [formData.sensorType, formData.sensorId]);
 
     const fetchFirmwareLogs = async () => {
         try {
-            const { data } = await axios.get("https://api.lx-gateway.tech/api/firmware/log");
-            setFirmwareLogs(data);
-        } catch (err) {
-            console.error("Error fetching logs", err);
+            const response = await axios.get("https://api.lx-gateway.tech/api/firmware/log");
+            setFirmwareLogs(response.data);
+        } catch (error) {
+            console.error("Error fetching logs", error);
         }
     };
 
@@ -55,23 +60,27 @@ const FirmwareDashboard = () => {
             return;
         }
 
-        if (formData.attemptDowngrade && !window.confirm("You are attempting a downgrade. Are you sure?")) return;
+        if (formData.attemptDowngrade) {
+            const confirmed = window.confirm("You are attempting a downgrade. Are you sure?");
+            if (!confirmed) return;
+        }
 
+        const fullSensorId = `${formData.sensorType}_${formData.sensorId}`;
         const payload = new FormData();
         payload.append("file", selectedFile);
         payload.append("sensor_id", fullSensorId);
         payload.append("firmwareVersion", formData.firmwareVersion);
         payload.append("issuerId", formData.issuerId);
         payload.append("deploymentDate", formData.deploymentDate);
-        payload.append("attemptDowngrade", formData.attemptDowngrade);
+        payload.append("attemptDowngrade", formData.attemptDowngrade.toString());
 
         try {
-            const { data } = await axios.post("https://api.lx-gateway.tech/firmware/upload", payload);
-            setUploadResult(data);
+            const response = await axios.post("https://api.lx-gateway.tech/firmware/upload", payload);
+            setUploadResult(response.data);
             fetchFirmwareLogs();
-        } catch (err) {
+        } catch (error) {
             setUploadResult({
-                error: err.response?.data?.message || "Upload failed. Please check backend or file signature."
+                error: error.response?.data?.message || "Upload failed. Please check backend or file signature."
             });
         }
     };
@@ -84,44 +93,75 @@ const FirmwareDashboard = () => {
                 <form onSubmit={handleUpload} className="bg-white shadow-md rounded px-6 py-4 mb-6">
                     <div className="mb-4">
                         <label className="block text-gray-700">Firmware File</label>
-                        <input type="file" onChange={(e) => setSelectedFile(e.target.files[0])} required className="mt-1" />
+                        <input
+                            type="file"
+                            onChange={(e) => setSelectedFile(e.target.files[0])}
+                            className="mt-1"
+                            required
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        {[
-                            { label: "Sensor Type", key: "sensorType", options: SENSOR_TYPES },
-                            { label: "Sensor ID", key: "sensorId", options: SENSOR_IDS },
-                        ].map(({ label, key, options }) => (
-                            <div key={key}>
-                                <label className="block">{label}</label>
-                                <select
-                                    value={formData[key]}
-                                    onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                                    className="w-full p-2 border rounded"
-                                >
-                                    {options.map((option) => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        ))}
+                        <div>
+                            <label className="block">Sensor Type</label>
+                            <select
+                                value={formData.sensorType}
+                                onChange={(e) => setFormData({ ...formData, sensorType: e.target.value })}
+                                className="w-full p-2 border rounded"
+                            >
+                                {SENSOR_TYPES.map((type) => (
+                                    <option key={type} value={type}>
+                                        {type}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                        {[
-                            { label: "Firmware Version", key: "firmwareVersion", placeholder: "e.g. v1.0.0" },
-                            { label: "Issuer ID", key: "issuerId" },
-                            { label: "Deployment Date", key: "deploymentDate", type: "date" }
-                        ].map(({ label, key, placeholder, type = "text" }) => (
-                            <div key={key}>
-                                <label className="block">{label}</label>
-                                <input
-                                    type={type}
-                                    value={formData[key]}
-                                    onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                                    className="w-full p-2 border rounded"
-                                    placeholder={placeholder || ""}
-                                />
-                            </div>
-                        ))}
+                        <div>
+                            <label className="block">Sensor ID</label>
+                            <select
+                                value={formData.sensorId}
+                                onChange={(e) => setFormData({ ...formData, sensorId: e.target.value })}
+                                className="w-full p-2 border rounded"
+                            >
+                                {SENSOR_IDS.map((id) => (
+                                    <option key={id} value={id}>
+                                        {id}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block">Firmware Version</label>
+                            <input
+                                type="text"
+                                value={formData.firmwareVersion}
+                                onChange={(e) => setFormData({ ...formData, firmwareVersion: e.target.value })}
+                                className="w-full p-2 border rounded"
+                                placeholder="e.g. v1.0.0"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block">Issuer ID</label>
+                            <input
+                                type="text"
+                                value={formData.issuerId}
+                                onChange={(e) => setFormData({ ...formData, issuerId: e.target.value })}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block">Deployment Date</label>
+                            <input
+                                type="date"
+                                value={formData.deploymentDate}
+                                onChange={(e) => setFormData({ ...formData, deploymentDate: e.target.value })}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
                     </div>
 
                     <div className="mt-4 flex items-center">
@@ -134,16 +174,26 @@ const FirmwareDashboard = () => {
                         <label>☐ Attempt Downgrade (confirm rollback manually)</label>
                     </div>
 
-                    <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    <button
+                        type="submit"
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
                         🚀 Simulate Upload
                     </button>
                 </form>
 
                 {deviceStatus && (
                     <div className="text-sm mt-4 mb-6 text-gray-700">
-                        <p><strong>Current Version:</strong> {deviceStatus.current}</p>
-                        <p><strong>Last Version:</strong> {deviceStatus.last}</p>
-                        <p><strong>Rollback Protection:</strong> {deviceStatus.rollback_protection ? "Enabled 🔒" : "Disabled ✅"}</p>
+                        <p>
+                            <strong>Current Version:</strong> {deviceStatus.current}
+                        </p>
+                        <p>
+                            <strong>Last Version:</strong> {deviceStatus.last}
+                        </p>
+                        <p>
+                            <strong>Rollback Protection:</strong>{" "}
+                            {deviceStatus.rollback_protection ? "Enabled 🔒" : "Disabled ✅"}
+                        </p>
                     </div>
                 )}
 
@@ -163,8 +213,11 @@ const FirmwareDashboard = () => {
                     ) : (
                         firmwareLogs.map((log, idx) => (
                             <div key={idx} className="mb-3 border-b pb-2 text-sm">
-                                <strong>{log.version}</strong> — {log.status} — <span className="text-gray-600">{log.issuer}</span>
-                                <div className="text-gray-500 text-xs">{new Date(log.timestamp).toLocaleString()}</div>
+                                <strong>{log.version}</strong> — {log.status} —{" "}
+                                <span className="text-gray-600">{log.issuer}</span>
+                                <div className="text-gray-500 text-xs">
+                                    {new Date(log.timestamp).toLocaleString()}
+                                </div>
                                 <details className="text-xs mt-1">
                                     <summary className="cursor-pointer text-blue-600">View details</summary>
                                     <pre>{JSON.stringify(log, null, 2)}</pre>
