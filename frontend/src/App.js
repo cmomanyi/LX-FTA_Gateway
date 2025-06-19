@@ -24,9 +24,9 @@ function App() {
               <Route path="/genericdashboard" element={<GenericDashboard />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
-              <Route path="/websocketdashboard" element={<SensorDashboardWebSocket />} />
+              <Route path="/securitydashboard" element={<SensorDashboardWebSocket />} />
               <Route path="/viewanomalies" element={<SensorAnomalyDashboard />} />
-              <Route path="/securitydashboard" element={<SensorSecurityDashboard/>} />
+              <Route path="/attacksimulate" element={<SensorSecurityDashboard/>} />
               <Route path="/firmwaredashboard" element={<FirmwareDashboard />} />
               <Route path="/attacksimulationdashboard" element={<AttackSimulationDashboard />} />
               <Route path="/Shapdashboard" element={<ShapAttackDashboard />} />
