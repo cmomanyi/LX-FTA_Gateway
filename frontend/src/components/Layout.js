@@ -26,8 +26,8 @@ const Layout = ({ children }) => {
                 <div>
                     <Link to="/genericdashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Dashboard</Link>
                     <Link to="/dashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Welcome</Link>
-                    <Link to="/websocketdashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Improved Dashboard</Link>
-                    <Link to="/viewanomalies" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Anomaly Detection Dashboard</Link>
+                    {/*<Link to="/websocketdashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Improved Dashboard</Link>*/}
+                    <Link to="/viewanomalies" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Anomaly  Dashboard</Link>
                     <Link to="/attacksimulate" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Attack Dashboard</Link>
                     <Link to="/securitydashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Security Dashboard</Link>
                     <Link to="/firmwaredashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Firmware Dashboard</Link>
@@ -35,7 +35,7 @@ const Layout = ({ children }) => {
                     <Link to="/Shapdashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Shap Dashboard</Link>
                     <Link to="/simulateattacks" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Simulate Attacks</Link>
 
-                    {/*<Link to="/attackV2" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>attackV2</Link>*/}
+                    <Link to="/attackV2" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>attackV2</Link>
 
 
                      <Link to="/admin" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Admin</Link>
