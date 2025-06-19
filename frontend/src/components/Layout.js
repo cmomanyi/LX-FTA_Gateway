@@ -35,7 +35,7 @@ const Layout = ({ children }) => {
                     <Link to="/Shapdashboard" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Shap Dashboard</Link>
                     <Link to="/simulateattacks" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Simulate Attacks</Link>
 
-                    <Link to="/attackV2" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>attackV2</Link>
+                    <Link to="/attackV2" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Threat Attack</Link>
 
 
                      <Link to="/admin" style={{ color: "#fff", marginRight: "15px", textDecoration: "none" }}>Admin</Link>
