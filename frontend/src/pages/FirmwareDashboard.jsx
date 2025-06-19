@@ -45,7 +45,7 @@ const FirmwareDashboard = () => {
 
     const fetchFirmwareLogs = async () => {
         try {
-            const response = await axios.get("http://localhost:8000/api/firmware/log");
+            const response = await axios.get("https://api.lx-gateway.tech/api/firmware/log");
             setFirmwareLogs(response.data);
         } catch (error) {
             console.error("Error fetching logs", error);
