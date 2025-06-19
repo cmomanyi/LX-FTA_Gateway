@@ -7,7 +7,7 @@ import hashlib
 import random
 import numpy as np
 
-from app.simulate_attacks.attack_log import log_attack
+from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
 from app.simulate_attacks.ml_evasion_detector import SensorReading, model
@@ -199,3 +199,8 @@ def detect_drift(data: SensorReading):
         "severity": "None",
         "blocked": False
     }
+
+
+@router.get("/api/logs")
+def fetch_logs():
+    return {"logs": get_attack_logs()}
