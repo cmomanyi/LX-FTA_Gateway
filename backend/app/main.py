@@ -1,4 +1,7 @@
 import traceback
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, WebSocket
@@ -8,9 +11,6 @@ from app.auth.auth import router as auth_router
 from app.sensors.generic_sensors import router as generic_sensors_router
 from app.simulate_attacks.sensor_simulation_attack import router as simulate_attacks_router
 from app.sensors.generic_threats_simulator import router as generic_threats_simulator_router
-from datetime import datetime
-import asyncio
-import random
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
@@ -21,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Thread executor for background tasks
+executor = ThreadPoolExecutor()
 
 # Register routes AFTER middleware
 app.include_router(auth_router)
@@ -60,12 +63,12 @@ def root():
     return {"message": "API is live"}
 
 
-@app.options("/login")
-def preflight_login():
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(request: Request):
     response = Response()
     response.headers["Access-Control-Allow-Origin"] = "https://portal.lx-gateway.tech"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
     response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
@@ -73,22 +76,12 @@ def preflight_login():
 @app.websocket("/ws/alerts")
 async def websocket_alerts(websocket: WebSocket):
     await websocket.accept()
-    try:
-        while True:
-            # Simulate dummy alert data
-            alert = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "sensor_id": random.choice([
-                    "soil-1000", "water-1001", "threat-1002", "plant-1003", "atmo-1004"
-                ]),
-                "attack_type": random.choice([
-                    "spoofing", "replay", "ddos", "drift", "firmware_injection"
-                ]),
-                "message": "Simulated threat activity detected.",
-                "severity": random.choice(["Low", "Medium", "High"]),
-                "blocked": random.choice([True, False])
-            }
-            await websocket.send_json(alert)
-            await asyncio.sleep(5)  # Send every 5 seconds
-    except Exception as e:
-        print(f"⚠️ WebSocket connection closed: {e}")
+    while True:
+        await websocket.send_json({
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensor_id": "sensor-xyz",
+            "attack_type": "ddos",
+            "message": "Simulated alert",
+            "severity": "High",
+            "blocked": True
+        })

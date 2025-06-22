@@ -1,12 +1,15 @@
-import boto3
-from fastapi import APIRouter, HTTPException, Request
-from datetime import datetime, timedelta
-from collections import defaultdict, deque
-from typing import Dict, List
 import hashlib
 import random
-import numpy as np
 
+import boto3
+import numpy as np
+from datetime import datetime, timedelta
+from collections import defaultdict
+from typing import Dict, List
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
+from fastapi import APIRouter, HTTPException, Request
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
@@ -15,10 +18,8 @@ from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp
 from app.simulate_attacks.spoofing_threat import SpoofingRequest
 
 router = APIRouter()
-
-# Initialize DynamoDB client
-DYNAMODB_REGION = "us-east-1"
-dynamodb = boto3.resource("dynamodb", region_name=DYNAMODB_REGION)
+dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+executor = ThreadPoolExecutor()
 
 
 def fetch_all_sensor_ids():
@@ -30,15 +31,23 @@ def fetch_all_sensor_ids():
         "lx-fta-plant-data"
     ]
     sensor_ids = set()
-    for table_name in tables:
+
+    def scan_table(table_name):
         try:
             table = dynamodb.Table(table_name)
             response = table.scan(ProjectionExpression="sensor_id")
-            for item in response.get("Items", []):
-                if "sensor_id" in item:
-                    sensor_ids.add(item["sensor_id"])
+            return [item["sensor_id"] for item in response.get("Items", []) if "sensor_id" in item]
         except Exception as e:
             print(f"Failed to fetch from {table_name}: {e}")
+            return []
+
+    loop = asyncio.get_event_loop()
+    futures = [loop.run_in_executor(executor, scan_table, table) for table in tables]
+    results = loop.run_until_complete(asyncio.gather(*futures))
+
+    for sensor_list in results:
+        sensor_ids.update(sensor_list)
+
     return list(sensor_ids)
 
 
@@ -62,27 +71,8 @@ def validate_sensor_id(sensor_id: str):
 ddos_window: Dict[str, List[datetime]] = defaultdict(list)
 
 
-#
-# @router.get("/api/attack-types")
-# def get_attack_types():
-#     """
-#     Return the supported simulation attack types for dashboard dropdowns.
-#     """
-#     return {
-#         "attack_types": [
-#             "spoofing",
-#             "replay",
-#             "firmware",
-#             "ml_evasion",
-#             "ddos"
-#         ]
-#     }
-
 @router.get("/api/attack-types")
 def get_attack_types():
-    """
-    Returns supported attack types with optional descriptions or payload hints.
-    """
     return {
         "attack_types": [
             {
@@ -165,7 +155,6 @@ async def detect_ddos(request: Request):
     }
 
 
-# ---------------- Firmware Injection ----------------
 @router.post("/api/detect/firmware_injection")
 async def detect_firmware_injection(data: FirmwareUpload):
     validate_sensor_id(data.sensor_id)
@@ -189,7 +178,6 @@ async def detect_firmware_injection(data: FirmwareUpload):
     }
 
 
-# ---------------- Spoofing ----------------
 @router.post("/api/validate")
 def spoofing_protection(req: SpoofingRequest):
     sensor_id = req.sensor_id
@@ -215,7 +203,6 @@ def spoofing_protection(req: SpoofingRequest):
     }
 
 
-# ---------------- Replay Attack ----------------
 @router.post("/api/replay-protect")
 def replay_protection(req: ReplayRequest):
     sensor_id = req.sensor_id
@@ -243,7 +230,6 @@ def replay_protection(req: ReplayRequest):
     }
 
 
-# ---------------- Drift Detection ----------------
 @router.post("/api/drift-detect")
 def detect_drift(data: SensorReading):
     sensor_id = data.sensor_id
