@@ -62,6 +62,76 @@ def validate_sensor_id(sensor_id: str):
 ddos_window: Dict[str, List[datetime]] = defaultdict(list)
 
 
+#
+# @router.get("/api/attack-types")
+# def get_attack_types():
+#     """
+#     Return the supported simulation attack types for dashboard dropdowns.
+#     """
+#     return {
+#         "attack_types": [
+#             "spoofing",
+#             "replay",
+#             "firmware",
+#             "ml_evasion",
+#             "ddos"
+#         ]
+#     }
+
+@router.get("/api/attack-types")
+def get_attack_types():
+    """
+    Returns supported attack types with optional descriptions or payload hints.
+    """
+    return {
+        "attack_types": [
+            {
+                "type": "spoofing",
+                "description": "Simulates ECC signature mismatch",
+                "sample": {
+                    "sensor_id": "sensor-x",
+                    "payload": "abc123",
+                    "ecc_signature": "invalid_hash"
+                }
+            },
+            {
+                "type": "replay",
+                "description": "Sends repeated nonce/timestamp values",
+                "sample": {
+                    "sensor_id": "sensor-x",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "nonce": "nonce-123456"
+                }
+            },
+            {
+                "type": "firmware",
+                "description": "Attempts to upload invalid firmware signature",
+                "sample": {
+                    "sensor_id": "sensor-x",
+                    "firmware_version": "1.0.3",
+                    "firmware_signature": "invalid_signature"
+                }
+            },
+            {
+                "type": "ml_evasion",
+                "description": "Triggers a drift detection anomaly",
+                "sample": {
+                    "sensor_id": "sensor-x",
+                    "values": [1.2, 2.3, 3.4]
+                }
+            },
+            {
+                "type": "ddos",
+                "description": "Sends many requests in a short timeframe",
+                "sample": {
+                    "sensor_id": "sensor-x",
+                    "threshold": 10
+                }
+            }
+        ]
+    }
+
+
 @router.post("/sensor/threat/ddos")
 async def detect_ddos(request: Request):
     data = await request.json()
