@@ -1,7 +1,7 @@
 import traceback
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request,WebSocket
 from starlette.responses import JSONResponse
 
 from app.auth.auth import router as auth_router
@@ -63,4 +63,12 @@ async def log_exceptions(request: Request, call_next):
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal Server Error"}
+
         )
+
+
+@app.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        await websocket.send_json({"timestamp": ..., "sensor_id": ..., ...})
