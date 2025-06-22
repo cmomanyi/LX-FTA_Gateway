@@ -13,7 +13,7 @@ app = FastAPI(title="LX-FTA_Gateway API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://portal.lx-gateway.tech"],  # ✅ EXACT origin
+    allow_origins=["https://portal.lx-gateway.tech","http://localhost:3000"],  # ✅ EXACT origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

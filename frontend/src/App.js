@@ -32,7 +32,6 @@ function App() {
               <Route path="/Shapdashboard" element={<ShapAttackDashboard />} />
               <Route path="/attackV2" element={<ThreatDashboard />} />
 
-
               <Route path ="/simulateattacks" element={<SensorSimulationAttackDashboard/>}/>
           </Routes>
       </Router>
