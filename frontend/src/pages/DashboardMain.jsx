@@ -1,5 +1,5 @@
 // DashboardMain.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 const DashboardMain = () => {
     const [sensorTypes, setSensorTypes] = useState([]);
@@ -8,8 +8,6 @@ const DashboardMain = () => {
     const [sensorNumber, setSensorNumber] = useState(1);
     const [attackTypes, setAttackTypes] = useState([]);
     const [attackType, setAttackType] = useState("");
-    const [metric, setMetric] = useState(30.0);
-    const [nonce, setNonce] = useState(Date.now().toString());
     const [wsStatus, setWsStatus] = useState("Disconnected");
     const [logs, setLogs] = useState([]);
     const [samplePayload, setSamplePayload] = useState("");
@@ -60,7 +58,7 @@ const DashboardMain = () => {
             .filter(num => !isNaN(num));
     };
 
-    const getSampleAttackPayload = () => {
+    const getSampleAttackPayload = useCallback(() => {
         const timestamp = new Date().toISOString();
         const base = { sensor_id: sensorId, timestamp };
 
@@ -78,11 +76,11 @@ const DashboardMain = () => {
             default:
                 return "{}";
         }
-    };
+    }, [sensorId, attackType]);
 
     useEffect(() => {
         setSamplePayload(getSampleAttackPayload());
-    }, [sensorType, sensorNumber, attackType]);
+    }, [getSampleAttackPayload]);
 
     const simulateSensor = async () => {
         const payload = JSON.parse(samplePayload);
