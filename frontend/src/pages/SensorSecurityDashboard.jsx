@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { Line, Doughnut } from "react-chartjs-2";
@@ -11,7 +10,7 @@ import {
     Title,
     Tooltip,
     Legend,
-    ArcElement
+    ArcElement,
 } from "chart.js";
 
 ChartJS.register(
@@ -45,12 +44,17 @@ const SensorSecurityDashboard = () => {
         fetchAuditTrail();
         const interval = setInterval(fetchAuditTrail, 10000);
 
-        const ws = new WebSocket("ws://api.lx-gateway.tech//ws/alerts");
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const ws = new WebSocket(`${protocol}://api.lx-gateway.tech/ws/alerts`);
 
         ws.onmessage = (event) => {
             const alert = JSON.parse(event.data);
             setAlerts((prev) => [alert, ...prev].slice(0, 50));
             setAuditTrail((prev) => [alert, ...prev].slice(0, 200));
+        };
+
+        ws.onerror = (err) => {
+            console.error("WebSocket connection error:", err);
         };
 
         return () => {
@@ -65,12 +69,12 @@ const SensorSecurityDashboard = () => {
             const data = await res.json();
             alert(data.status || "Attack simulated");
         } catch (err) {
-            console.error("Failed to trigger attacks", err);
+            console.error("Failed to trigger attack", err);
         }
     };
 
     const chartData = {
-        labels: alerts.slice(0, 10).map(a => new Date(a.timestamp).toLocaleTimeString()),
+        labels: alerts.slice(0, 10).map((a) => new Date(a.timestamp).toLocaleTimeString()),
         datasets: [
             {
                 label: "Alerts (last 10)",
@@ -94,16 +98,16 @@ const SensorSecurityDashboard = () => {
                 data: Object.values(attackTypeCounts),
                 backgroundColor: [
                     "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1",
-                    "#8B5CF6", "#EC4899", "#F97316", "#14B8A6", "#84CC16"
+                    "#8B5CF6", "#EC4899", "#F97316", "#14B8A6", "#84CC16",
                 ],
-                borderWidth: 1
-            }
-        ]
+                borderWidth: 1,
+            },
+        ],
     };
 
     const filteredAuditTrail = severityFilter === "all"
         ? auditTrail
-        : auditTrail.filter(log => log.severity?.toLowerCase() === severityFilter);
+        : auditTrail.filter((log) => log.severity?.toLowerCase() === severityFilter);
 
     return (
         <Layout>
@@ -116,18 +120,14 @@ const SensorSecurityDashboard = () => {
                             onChange={(e) => setSelectedAttack(e.target.value)}
                             className="border px-2 py-1 rounded"
                         >
-                            <option value="spoofing">Spoofing</option>
-                            <option value="replay">Replay</option>
-                            <option value="firmware">Firmware Injection</option>
-                            <option value="ml">ML Evasion</option>
-                            <option value="overflow">Overflow</option>
-                            <option value="ddos">DDoS</option>
-                            <option value="api">API Abuse</option>
-                            <option value="sidechannel">Side Channel</option>
-                            <option value="tamper">Tamper Breach</option>
-                            <option value="hijack">Sensor Hijack</option>
+                            {["spoofing", "replay", "firmware", "ml", "overflow", "ddos", "api", "sidechannel", "tamper", "hijack"].map(type => (
+                                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                            ))}
                         </select>
-                        <button onClick={handleTrigger} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                        <button
+                            onClick={handleTrigger}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                        >
                             Trigger Attack
                         </button>
                     </div>

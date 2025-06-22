@@ -46,7 +46,8 @@ const ThreatDashboard = () => {
     const sensorId = `${sensorType}_${String(sensorNumber).padStart(2, "0")}`;
 
     useEffect(() => {
-        const ws = new WebSocket("ws://api.lx-gateway.tech/ws/alerts");
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const ws = new WebSocket(`${protocol}://api.lx-gateway.tech/ws/alerts`);
 
         ws.onopen = () => setWsStatus("Connected");
         ws.onclose = () => setWsStatus("Disconnected");
@@ -131,150 +132,133 @@ const ThreatDashboard = () => {
 
     return (
         <Layout>
-        <div className="flex">
-            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            <div className="flex-1 p-6 bg-gray-100 min-h-screen">
-                {activeTab === "dashboard" && (
-                    <>
-                        <h1 className="text-2xl font-bold mb-4">🛡️ Threat Detection Dashboard</h1>
+            <div className="flex">
+                <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+                <div className="flex-1 p-6 bg-gray-100 min-h-screen">
+                    {activeTab === "dashboard" && (
+                        <>
+                            <h1 className="text-2xl font-bold mb-4">🛡️ Threat Detection Dashboard</h1>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div className="bg-white p-4 shadow rounded">
+                                    <h2 className="font-semibold text-lg mb-2">📡 Simulate Sensor</h2>
+                                    <label className="block font-medium">Sensor Type</label>
+                                    <select
+                                        className="w-full border p-2 mb-2 rounded"
+                                        value={sensorType}
+                                        onChange={(e) => setSensorType(e.target.value)}
+                                    >
+                                        {SENSOR_TYPES.map((type) => (
+                                            <option key={type} value={type}>{type}</option>
+                                        ))}
+                                    </select>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            {/* Simulate Sensor */}
-                            <div className="bg-white p-4 shadow rounded">
-                                <h2 className="font-semibold text-lg mb-2">📡 Simulate Sensor</h2>
-                                <label className="block font-medium">Sensor Type</label>
-                                <select
-                                    className="w-full border p-2 mb-2 rounded"
-                                    value={sensorType}
-                                    onChange={(e) => setSensorType(e.target.value)}
-                                >
-                                    {SENSOR_TYPES.map((type) => (
-                                        <option key={type} value={type}>
-                                            {type}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <label className="block font-medium">Sensor Number</label>
+                                    <select
+                                        className="w-full border p-2 mb-2 rounded"
+                                        value={sensorNumber}
+                                        onChange={(e) => setSensorNumber(Number(e.target.value))}
+                                    >
+                                        {SENSOR_NUMBERS.map((num) => (
+                                            <option key={num} value={num}>Sensor {num}</option>
+                                        ))}
+                                    </select>
 
-                                <label className="block font-medium">Sensor Number</label>
-                                <select
-                                    className="w-full border p-2 mb-2 rounded"
-                                    value={sensorNumber}
-                                    onChange={(e) => setSensorNumber(Number(e.target.value))}
-                                >
-                                    {SENSOR_NUMBERS.map((num) => (
-                                        <option key={num} value={num}>
-                                            Sensor {num}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <label className="block font-medium">Metric</label>
+                                    <input
+                                        type="number"
+                                        className="w-full border p-2 mb-2 rounded"
+                                        value={metric}
+                                        onChange={(e) => setMetric(e.target.value)}
+                                    />
 
-                                <label className="block font-medium">Metric</label>
-                                <input
-                                    type="number"
-                                    className="w-full border p-2 mb-2 rounded"
-                                    value={metric}
-                                    onChange={(e) => setMetric(e.target.value)}
-                                />
+                                    <label className="block font-medium">Nonce</label>
+                                    <input
+                                        className="w-full border p-2 mb-2 rounded"
+                                        value={nonce}
+                                        onChange={(e) => setNonce(e.target.value)}
+                                    />
 
-                                <label className="block font-medium">Nonce</label>
-                                <input
-                                    className="w-full border p-2 mb-2 rounded"
-                                    value={nonce}
-                                    onChange={(e) => setNonce(e.target.value)}
-                                />
+                                    <button
+                                        onClick={simulateSensor}
+                                        className="w-full bg-blue-600 text-white px-4 py-2 mt-2 rounded hover:bg-blue-700"
+                                    >
+                                        🚀 Simulate Sensor
+                                    </button>
+                                </div>
 
+                                <div className="bg-white p-4 shadow rounded">
+                                    <h2 className="font-semibold text-lg mb-2">⚔️ Simulate Attack</h2>
+                                    <label className="block font-medium">Attack Type</label>
+                                    <select
+                                        className="w-full border p-2 rounded"
+                                        value={selectedAttack}
+                                        onChange={(e) => setSelectedAttack(e.target.value)}
+                                    >
+                                        {ATTACK_OPTIONS.map((opt) => (
+                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-sm text-gray-600 italic mt-1">
+                                        {ATTACK_OPTIONS.find((a) => a.id === selectedAttack)?.description}
+                                    </p>
+
+                                    <button
+                                        onClick={simulateAttack}
+                                        className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                                    >
+                                        🧪 Simulate Selected Attack
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mb-4 flex items-center justify-between">
+                <span className="text-sm text-gray-600">
+                  WebSocket Status: <strong className={wsStatus === "Connected" ? "text-green-600" : "text-red-500"}>{wsStatus}</strong>
+                </span>
                                 <button
-                                    onClick={simulateSensor}
-                                    className="w-full bg-blue-600 text-white px-4 py-2 mt-2 rounded hover:bg-blue-700"
+                                    onClick={exportLogs}
+                                    className="px-3 py-1 bg-green-600 text-white rounded"
                                 >
-                                    🚀 Simulate Sensor
+                                    📤 Export Logs
                                 </button>
                             </div>
 
-                            {/* Simulate Attack */}
-                            <div className="bg-white p-4 shadow rounded">
-                                <h2 className="font-semibold text-lg mb-2">⚔️ Simulate Attack</h2>
-                                <label className="block font-medium">Attack Type</label>
-                                <select
-                                    className="w-full border p-2 rounded"
-                                    value={selectedAttack}
-                                    onChange={(e) => setSelectedAttack(e.target.value)}
-                                >
-                                    {ATTACK_OPTIONS.map((opt) => (
-                                        <option key={opt.id} value={opt.id}>
-                                            {opt.label}
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="text-sm text-gray-600 italic mt-1">
-                                    {ATTACK_OPTIONS.find((a) => a.id === selectedAttack)?.description}
-                                </p>
-
-                                <button
-                                    onClick={simulateAttack}
-                                    className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                                >
-                                    🧪 Simulate Selected Attack
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Logs Table */}
-                        <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm text-gray-600">
-                WebSocket Status:{" "}
-                  <strong
-                      className={wsStatus === "Connected" ? "text-green-600" : "text-red-500"}
-                  >
-                  {wsStatus}
-                </strong>
-              </span>
-                            <button
-                                onClick={exportLogs}
-                                className="px-3 py-1 bg-green-600 text-white rounded"
-                            >
-                                📤 Export Logs
-                            </button>
-                        </div>
-
-                        <div className="overflow-x-auto bg-white shadow-md rounded mb-6">
-                            <table className="min-w-full text-sm text-left">
-                                <thead className="bg-gray-100 border-b">
-                                <tr>
-                                    <th className="px-4 py-2">Time</th>
-                                    <th className="px-4 py-2">Sensor</th>
-                                    <th className="px-4 py-2">Attack</th>
-                                    <th className="px-4 py-2">Message</th>
-                                    <th className="px-4 py-2">Severity</th>
-                                    <th className="px-4 py-2">Status</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {anomalies.map((log, index) => (
-                                    <tr key={index} className="border-b hover:bg-gray-50">
-                                        <td className="px-4 py-2">
-                                            {new Date(log.timestamp).toLocaleString()}
-                                        </td>
-                                        <td className="px-4 py-2">{log.sensor_id}</td>
-                                        <td className="px-4 py-2">{log.attack_type || "Normal"}</td>
-                                        <td className="px-4 py-2">{log.message || "No anomaly"}</td>
-                                        <td className="px-4 py-2 text-red-600">{log.severity || "Low"}</td>
-                                        <td className="px-4 py-2">{log.status || "accepted"}</td>
+                            <div className="overflow-x-auto bg-white shadow-md rounded mb-6">
+                                <table className="min-w-full text-sm text-left">
+                                    <thead className="bg-gray-100 border-b">
+                                    <tr>
+                                        <th className="px-4 py-2">Time</th>
+                                        <th className="px-4 py-2">Sensor</th>
+                                        <th className="px-4 py-2">Attack</th>
+                                        <th className="px-4 py-2">Message</th>
+                                        <th className="px-4 py-2">Severity</th>
+                                        <th className="px-4 py-2">Status</th>
                                     </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </>
-                )}
+                                    </thead>
+                                    <tbody>
+                                    {anomalies.map((log, index) => (
+                                        <tr key={index} className="border-b hover:bg-gray-50">
+                                            <td className="px-4 py-2">{new Date(log.timestamp).toLocaleString()}</td>
+                                            <td className="px-4 py-2">{log.sensor_id}</td>
+                                            <td className="px-4 py-2">{log.attack_type || "Normal"}</td>
+                                            <td className="px-4 py-2">{log.message || "No anomaly"}</td>
+                                            <td className="px-4 py-2 text-red-600">{log.severity || "Low"}</td>
+                                            <td className="px-4 py-2">{log.status || "accepted"}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
 
-                {activeTab === "analytics" && (
-                    <div className="text-gray-500 italic text-center mt-20">
-                        📈 Analytics coming soon...
-                    </div>
-                )}
+                    {activeTab === "analytics" && (
+                        <div className="text-gray-500 italic text-center mt-20">
+                            📈 Analytics coming soon...
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
         </Layout>
     );
 };
