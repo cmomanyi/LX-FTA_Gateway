@@ -66,9 +66,15 @@ async def log_exceptions(request: Request, call_next):
 
         )
 
+#
+# @app.websocket("/ws/alerts")
+# async def websocket_alerts(websocket: WebSocket):
+#     await websocket.accept()
+#     while True:
+#         await websocket.send_json({"timestamp": ..., "sensor_id": ..., ...})
 
 @app.websocket("/ws/alerts")
-async def websocket_alerts(websocket: WebSocket):
+async def alert_stream(websocket: WebSocket):
     await websocket.accept()
     while True:
-        await websocket.send_json({"timestamp": ..., "sensor_id": ..., ...})
+        await websocket.send_json({...})
