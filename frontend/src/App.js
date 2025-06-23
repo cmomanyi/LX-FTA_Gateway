@@ -12,7 +12,7 @@ import FirmwareDashboard from "./pages/FirmwareDashboard";
 import AttackSimulationDashboard from "./pages/AttackSimulationDashboard";
 import ShapAttackDashboard from "./pages/ShapAttackDashboard";
 import Unauthorized from "./pages/Unauthorized";
-import ThreatDashboard from "./pages/ThreatDashboard";
+import ThreatDashboard from "./components/ThreatDashboard";
 import SensorSimulationAttackDashboard from "./pages/SensorSimulationAttackDashboard";
 
 function App() {

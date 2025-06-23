@@ -1,7 +1,6 @@
+import boto3
 import hashlib
 import random
-
-import boto3
 import numpy as np
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -9,7 +8,7 @@ from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, WebSocket
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
@@ -260,3 +259,16 @@ def detect_drift(data: SensorReading):
 @router.get("/api/logs")
 def fetch_logs():
     return {"logs": get_attack_logs()}
+
+
+@router.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        await asyncio.sleep(5)  # throttle to avoid flooding
+        await websocket.send_json({
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensor_id": "sensor-x",
+            "message": "Simulated live alert",
+            "level": "info"
+        })

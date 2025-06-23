@@ -1,46 +1,70 @@
 import boto3
-from botocore.exceptions import ClientError
+import sys
+import json
 
-region = "us-east-1"
-dynamodb_table_name = "lx-fta-audit-logs"
-log_group_name = "/ecs/lx-fta-backend"
+def add_spa_redirect(distribution_id):
+    client = boto3.client('cloudfront')
 
-dynamodb = boto3.client("dynamodb", region_name=region)
-logs = boto3.client("logs", region_name=region)
-
-def create_dynamodb_table():
+    # Step 1: Fetch current config and ETag
     try:
-        existing = dynamodb.describe_table(TableName=dynamodb_table_name)
-        print(f"⚠️ DynamoDB table '{dynamodb_table_name}' already exists.")
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            print(f"🛠️ Creating DynamoDB table '{dynamodb_table_name}'...")
-            dynamodb.create_table(
-                TableName=dynamodb_table_name,
-                AttributeDefinitions=[{
-                    "AttributeName": "id",
-                    "AttributeType": "S"
-                }],
-                KeySchema=[{
-                    "AttributeName": "id",
-                    "KeyType": "HASH"
-                }],
-                BillingMode="PAY_PER_REQUEST"
-            )
-            print("✅ DynamoDB table created.")
-        else:
-            raise
+        response = client.get_distribution_config(Id=distribution_id)
+        config = response['DistributionConfig']
+        etag = response['ETag']
+        print(f"✅ Retrieved config for distribution: {distribution_id}")
+    except Exception as e:
+        print(f"❌ Failed to get distribution config: {e}")
+        sys.exit(1)
 
-def create_log_group():
-    log_groups = logs.describe_log_groups(logGroupNamePrefix=log_group_name).get("logGroups", [])
-    if any(lg["logGroupName"] == log_group_name for lg in log_groups):
-        print(f"⚠️ Log group '{log_group_name}' already exists.")
-    else:
-        print(f"🛠️ Creating CloudWatch log group '{log_group_name}'...")
-        logs.create_log_group(logGroupName=log_group_name)
-        print("✅ Log group created.")
+    # Step 2: Backup current config
+    backup_file = f"cloudfront_spa_backup_{distribution_id}.json"
+    with open(backup_file, "w") as f:
+        json.dump(config, f, indent=2)
+        print(f"📦 Backup saved to {backup_file}")
 
+    # Step 3: Add or update custom error response for 404 → /index.html
+    existing_errors = config.get("CustomErrorResponses", {}).get("Items", [])
+    error_already_set = any(
+        e.get("ErrorCode") == 404 and e.get("ResponsePagePath") == "/index.html"
+        for e in existing_errors
+    )
+
+    if error_already_set:
+        print("⚠️ Custom error response for 404 → /index.html already exists. No changes made.")
+        return
+
+    # Add new error response
+    new_error = {
+        "ErrorCode": 404,
+        "ResponsePagePath": "/index.html",
+        "ResponseCode": "200",
+        "ErrorCachingMinTTL": 0
+    }
+
+    updated_errors = existing_errors + [new_error]
+    config["CustomErrorResponses"] = {
+        "Quantity": len(updated_errors),
+        "Items": updated_errors
+    }
+
+    # Step 4: Update distribution
+    try:
+        result = client.update_distribution(
+            Id=distribution_id,
+            IfMatch=etag,
+            DistributionConfig=config
+        )
+        print("✅ Custom error response added: 404 → /index.html with 200 OK.")
+    except Exception as e:
+        print(f"❌ Failed to update distribution: {e}")
+        sys.exit(1)
+
+# ---- Entry Point ----
 
 if __name__ == "__main__":
-    create_dynamodb_table()
-    create_log_group()
+    DISTRIBUTION_ID = "E122V50REJOK3C"
+
+    if DISTRIBUTION_ID == "YOUR_DISTRIBUTION_ID":
+        print("❌ Please set DISTRIBUTION_ID in the script.")
+        sys.exit(1)
+
+    add_spa_redirect(DISTRIBUTION_ID)
