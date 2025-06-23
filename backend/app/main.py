@@ -9,11 +9,12 @@ from app.sensors.generic_sensors import router as generic_sensors_router
 from app.simulate_attacks.sensor_simulation_attack import router as simulate_attacks_router
 from app.sensors.generic_threats_simulator import router as generic_threats_simulator_router
 
-app = FastAPI(title="LX-FTA_Gateway API")
 
+app = FastAPI(title="LX-FTA_Gateway API")
+# , "http://localhost:3000"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://portal.lx-gateway.tech", "http://localhost:3000"],  # ✅ EXACT origin
+    allow_origins=["https://portal.lx-gateway.tech"],  # ✅ EXACT origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
