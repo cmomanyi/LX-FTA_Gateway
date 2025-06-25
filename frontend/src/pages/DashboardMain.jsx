@@ -1,5 +1,31 @@
 import React, { useEffect, useState } from "react";
 
+const attackSamples = {
+    spoofing: {
+        sensor_id: "sensor-x",
+        payload: "abc123",
+        ecc_signature: "invalid_hash"
+    },
+    replay: {
+        sensor_id: "sensor-x",
+        timestamp: "", // dynamically updated
+        nonce: ""
+    },
+    firmware: {
+        sensor_id: "sensor-x",
+        firmware_version: "1.0.3",
+        firmware_signature: "invalid_signature"
+    },
+    ml_evasion: {
+        sensor_id: "sensor-x",
+        values: [1.2, 2.3, 3.4]
+    },
+    ddos: {
+        sensor_id: "sensor-x",
+        threshold: 10
+    }
+};
+
 const DashboardMain = () => {
     const [sensorTypes, setSensorTypes] = useState([]);
     const [sensorIDs, setSensorIDs] = useState([]);
@@ -30,11 +56,11 @@ const DashboardMain = () => {
     useEffect(() => {
         const fetchAlerts = async () => {
             try {
-                const response = await fetch('https://api.lx-gateway.tech/api/alerts');
+                const response = await fetch("https://api.lx-gateway.tech/api/alerts");
                 const data = await response.json();
                 setLiveLogs(data.alerts || []);
             } catch (err) {
-                console.error('Failed to fetch alerts:', err);
+                console.error("Failed to fetch alerts:", err);
             }
         };
 
@@ -64,7 +90,7 @@ const DashboardMain = () => {
         fetch(`https://api.lx-gateway.tech/simulate/${selectedAttack}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: payload,
+            body: payload
         })
             .then((res) => res.json())
             .then((result) => {
@@ -73,44 +99,83 @@ const DashboardMain = () => {
             .catch((err) => console.error("Attack simulation failed", err));
     };
 
+    const handleAttackSelect = (val) => {
+        setSelectedAttack(val);
+
+        if (attackSamples[val]) {
+            const sample = { ...attackSamples[val] };
+
+            if (val === "replay") {
+                sample.timestamp = new Date().toISOString();
+                sample.nonce = `nonce-${Math.floor(Math.random() * 1000000)}`;
+            }
+
+            if (selectedID) {
+                sample.sensor_id = selectedID;
+            }
+
+            setAttackData(JSON.stringify(sample, null, 2));
+        } else {
+            setAttackData("");
+        }
+    };
+
     return (
         <div className="p-4">
             <h2 className="text-xl font-bold mb-4">Simulate Sensor Attack</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
-                <select onChange={(e) => setSelectedType(e.target.value)} className="p-2 border rounded">
+                <select
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="p-2 border rounded"
+                >
                     <option value="">Select Sensor Type</option>
                     {sensorTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>
+                            {type}
+                        </option>
                     ))}
                 </select>
 
-                <select onChange={(e) => setSelectedID(e.target.value)} className="p-2 border rounded">
+                <select
+                    onChange={(e) => setSelectedID(e.target.value)}
+                    className="p-2 border rounded"
+                >
                     <option value="">Select Sensor ID</option>
                     {sensorIDs
                         .filter((id) => !selectedType || id.startsWith(selectedType.slice(0, 4)))
                         .map((id) => (
-                            <option key={id} value={id}>{id}</option>
+                            <option key={id} value={id}>
+                                {id}
+                            </option>
                         ))}
                 </select>
 
-                <select onChange={(e) => setSelectedAttack(e.target.value)} className="p-2 border rounded">
+                <select
+                    onChange={(e) => handleAttackSelect(e.target.value)}
+                    className="p-2 border rounded"
+                >
                     <option value="">Select Attack Type</option>
                     {attackTypes.map((type) => (
-                        <option key={type.type} value={type.type}>{type.type}</option>
+                        <option key={type.type} value={type.type}>
+                            {type.type}
+                        </option>
                     ))}
                 </select>
 
                 <textarea
                     className="col-span-2 p-2 border rounded"
-                    rows={5}
+                    rows={6}
                     placeholder="Paste or modify attack JSON here"
                     value={attackData}
                     onChange={(e) => setAttackData(e.target.value)}
                 />
             </div>
 
-            <button onClick={handleAttack} className="bg-red-500 text-white px-4 py-2 rounded">
+            <button
+                onClick={handleAttack}
+                className="bg-red-500 text-white px-4 py-2 rounded"
+            >
                 Simulate Attack
             </button>
 
@@ -119,10 +184,19 @@ const DashboardMain = () => {
                 <div className="bg-gray-100 p-4 rounded max-h-60 overflow-auto">
                     {liveLogs.map((log, idx) => (
                         <div key={idx} className="mb-2 border-b pb-2">
-                            <p><strong>{log.timestamp}</strong> | {log.sensor_id}</p>
-                            <p>{(log?.attack_type || "unknown").toUpperCase()}: {log.message}</p>
-                            <p className={`text-sm ${log.blocked ? "text-red-600" : "text-green-600"}`}>
-                                Status: {log.blocked ? "Blocked" : "Allowed"} — Severity: {log.severity}
+                            <p>
+                                <strong>{log.timestamp}</strong> | {log.sensor_id}
+                            </p>
+                            <p>
+                                {(log?.attack_type || "unknown").toUpperCase()}: {log.message}
+                            </p>
+                            <p
+                                className={`text-sm ${
+                                    log.blocked ? "text-red-600" : "text-green-600"
+                                }`}
+                            >
+                                Status: {log.blocked ? "Blocked" : "Allowed"} — Severity:{" "}
+                                {log.severity}
                             </p>
                         </div>
                     ))}
