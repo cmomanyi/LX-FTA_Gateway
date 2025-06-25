@@ -11,7 +11,6 @@ const DashboardMain = () => {
     const [liveLogs, setLiveLogs] = useState([]);
 
     useEffect(() => {
-        // Fetch sensor types and sensor IDs
         fetch("https://api.lx-gateway.tech/api/sensor-types")
             .then((res) => res.json())
             .then((data) => {
@@ -20,7 +19,6 @@ const DashboardMain = () => {
             })
             .catch((err) => console.error("Failed to fetch sensor types", err));
 
-        // Fetch attack types
         fetch("https://api.lx-gateway.tech/api/attack-types")
             .then((res) => res.json())
             .then((data) => {
@@ -40,7 +38,7 @@ const DashboardMain = () => {
             }
         };
 
-        fetchAlerts(); // Initial fetch
+        fetchAlerts();
 
         const interval = setInterval(() => {
             fetchAlerts().catch((err) =>
@@ -122,7 +120,7 @@ const DashboardMain = () => {
                     {liveLogs.map((log, idx) => (
                         <div key={idx} className="mb-2 border-b pb-2">
                             <p><strong>{log.timestamp}</strong> | {log.sensor_id}</p>
-                            <p>{log.attack_type.toUpperCase()}: {log.message}</p>
+                            <p>{(log?.attack_type || "unknown").toUpperCase()}: {log.message}</p>
                             <p className={`text-sm ${log.blocked ? "text-red-600" : "text-green-600"}`}>
                                 Status: {log.blocked ? "Blocked" : "Allowed"} — Severity: {log.severity}
                             </p>
