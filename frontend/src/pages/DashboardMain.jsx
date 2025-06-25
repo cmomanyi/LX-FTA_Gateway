@@ -11,6 +11,7 @@ const DashboardMain = () => {
     const [liveLogs, setLiveLogs] = useState([]);
 
     useEffect(() => {
+        // Fetch sensor types and sensor IDs
         fetch("https://api.lx-gateway.tech/api/sensor-types")
             .then((res) => res.json())
             .then((data) => {
@@ -19,6 +20,7 @@ const DashboardMain = () => {
             })
             .catch((err) => console.error("Failed to fetch sensor types", err));
 
+        // Fetch attack types
         fetch("https://api.lx-gateway.tech/api/attack-types")
             .then((res) => res.json())
             .then((data) => {
@@ -32,13 +34,13 @@ const DashboardMain = () => {
             try {
                 const response = await fetch('https://api.lx-gateway.tech/api/alerts');
                 const data = await response.json();
-                setAlerts(data.alerts);
+                setLiveLogs(data.alerts || []);
             } catch (err) {
                 console.error('Failed to fetch alerts:', err);
             }
         };
 
-        fetchAlerts(); // initial fetch
+        fetchAlerts(); // Initial fetch
 
         const interval = setInterval(() => {
             fetchAlerts().catch((err) =>
@@ -49,15 +51,22 @@ const DashboardMain = () => {
         return () => clearInterval(interval);
     }, []);
 
-
-
     const handleAttack = () => {
-        if (!selectedID || !selectedAttack) return alert("Select all fields");
+        if (!selectedID || !selectedAttack) {
+            return alert("Please select sensor ID and attack type.");
+        }
+
+        let payload;
+        try {
+            payload = JSON.stringify(JSON.parse(attackData || "{}"));
+        } catch (e) {
+            return alert("Invalid JSON in attack data.");
+        }
 
         fetch(`https://api.lx-gateway.tech/simulate/${selectedAttack}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: attackData,
+            body: payload,
         })
             .then((res) => res.json())
             .then((result) => {
@@ -90,7 +99,7 @@ const DashboardMain = () => {
                 <select onChange={(e) => setSelectedAttack(e.target.value)} className="p-2 border rounded">
                     <option value="">Select Attack Type</option>
                     {attackTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type.type} value={type.type}>{type.type}</option>
                     ))}
                 </select>
 
