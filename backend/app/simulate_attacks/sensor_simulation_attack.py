@@ -8,7 +8,7 @@ from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
@@ -22,7 +22,7 @@ dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 executor = ThreadPoolExecutor()
 
 
-def fetch_all_sensor_ids():
+async def fetch_all_sensor_ids():
     tables = [
         "lx-fta-soil-data",
         "lx-fta-atmospheric-data",
@@ -41,9 +41,9 @@ def fetch_all_sensor_ids():
             print(f"Failed to fetch from {table_name}: {e}")
             return []
 
-    loop = asyncio.get_event_loop()
-    futures = [loop.run_in_executor(executor, scan_table, table) for table in tables]
-    results = loop.run_until_complete(asyncio.gather(*futures))
+    loop = asyncio.get_running_loop()
+    tasks = [loop.run_in_executor(executor, scan_table, table) for table in tables]
+    results = await asyncio.gather(*tasks)
 
     for sensor_list in results:
         sensor_ids.update(sensor_list)
@@ -52,16 +52,16 @@ def fetch_all_sensor_ids():
 
 
 @router.get("/api/sensor-types")
-def get_sensor_types():
-    sensor_ids = fetch_all_sensor_ids()
+async def get_sensor_types():
+    sensor_ids = await fetch_all_sensor_ids()
     return {
         "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
         "sensor_ids": sensor_ids
     }
 
 
-def validate_sensor_id(sensor_id: str):
-    valid_ids = fetch_all_sensor_ids()
+async def validate_sensor_id(sensor_id: str):
+    valid_ids = await fetch_all_sensor_ids()
     if sensor_id not in valid_ids:
         raise HTTPException(status_code=400, detail="Invalid sensor ID")
     return True
@@ -127,7 +127,7 @@ async def detect_ddos(request: Request):
     data = await request.json()
     sensor_id = data.get("sensor_id")
     threshold = data.get("threshold", 10)
-    validate_sensor_id(sensor_id)
+    await validate_sensor_id(sensor_id)
     now = datetime.utcnow()
     ddos_window[sensor_id].append(now)
     ddos_window[sensor_id] = [t for t in ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
@@ -157,7 +157,7 @@ async def detect_ddos(request: Request):
 
 @router.post("/api/detect/firmware_injection")
 async def detect_firmware_injection(data: FirmwareUpload):
-    validate_sensor_id(data.sensor_id)
+    await validate_sensor_id(data.sensor_id)
     if not data.firmware_signature or data.firmware_signature != "valid_signature_123":
         message = "🔴 Firmware Rejected – Signature Invalid"
         alert = {
@@ -179,9 +179,9 @@ async def detect_firmware_injection(data: FirmwareUpload):
 
 
 @router.post("/api/validate")
-def spoofing_protection(req: SpoofingRequest):
+async def spoofing_protection(req: SpoofingRequest):
     sensor_id = req.sensor_id
-    validate_sensor_id(sensor_id)
+    await validate_sensor_id(sensor_id)
     expected = hashlib.sha256((sensor_id + req.payload).encode()).hexdigest()
     if req.ecc_signature != expected:
         message = "🔴 Spoofing Detected – ECC Signature Mismatch"
@@ -204,9 +204,9 @@ def spoofing_protection(req: SpoofingRequest):
 
 
 @router.post("/api/replay-protect")
-def replay_protection(req: ReplayRequest):
+async def replay_protection(req: ReplayRequest):
     sensor_id = req.sensor_id
-    validate_sensor_id(sensor_id)
+    await validate_sensor_id(sensor_id)
     if req.nonce in USED_NONCES:
         message = "🔴 Replay Detected – Duplicate Nonce"
         log_attack(sensor_id, "replay", message, severity="High")
@@ -231,9 +231,9 @@ def replay_protection(req: ReplayRequest):
 
 
 @router.post("/api/drift-detect")
-def detect_drift(data: SensorReading):
+async def detect_drift(data: SensorReading):
     sensor_id = data.sensor_id
-    validate_sensor_id(sensor_id)
+    await validate_sensor_id(sensor_id)
     readings = np.array(data.values).reshape(-1, 1)
     preds = model.predict(readings)
 
@@ -261,9 +261,10 @@ def detect_drift(data: SensorReading):
 def fetch_logs():
     return {"logs": get_attack_logs()}
 
+
+# Simulated alerts
 alerts_cache = []
 
-# Populate alerts_cache with fake data to simulate live alerts (for now)
 def generate_mock_alert():
     return {
         "timestamp": datetime.utcnow().isoformat(),
@@ -274,22 +275,7 @@ def generate_mock_alert():
 
 @router.get("/api/alerts")
 def get_latest_alerts():
-    # Return last 10 alerts
     if not alerts_cache:
-        # Simulate a few alerts if none exist
         for _ in range(3):
             alerts_cache.append(generate_mock_alert())
     return JSONResponse(content={"alerts": alerts_cache[-10:]})
-#
-#
-# @router.websocket("/ws/alerts")
-# async def websocket_alerts(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         await asyncio.sleep(5)  # throttle to avoid flooding
-#         await websocket.send_json({
-#             "timestamp": datetime.utcnow().isoformat(),
-#             "sensor_id": "sensor-x",
-#             "message": "Simulated live alert",
-#             "level": "info"
-#         })
