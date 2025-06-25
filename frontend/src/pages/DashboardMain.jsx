@@ -28,14 +28,28 @@ const DashboardMain = () => {
     }, []);
 
     useEffect(() => {
-        const ws = new WebSocket("wss://api.lx-gateway.tech/ws/alerts");
-        ws.onmessage = (event) => {
-            const log = JSON.parse(event.data);
-            setLiveLogs((prevLogs) => [log, ...prevLogs.slice(0, 19)]);
+        const fetchAlerts = async () => {
+            try {
+                const response = await fetch('https://api.lx-gateway.tech/api/alerts');
+                const data = await response.json();
+                setAlerts(data.alerts);
+            } catch (err) {
+                console.error('Failed to fetch alerts:', err);
+            }
         };
-        ws.onerror = (err) => console.error("WebSocket error:", err);
-        return () => ws.close();
+
+        fetchAlerts(); // initial fetch
+
+        const interval = setInterval(() => {
+            fetchAlerts().catch((err) =>
+                console.error("Unhandled fetchAlerts error:", err)
+            );
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, []);
+
+
 
     const handleAttack = () => {
         if (!selectedID || !selectedAttack) return alert("Select all fields");

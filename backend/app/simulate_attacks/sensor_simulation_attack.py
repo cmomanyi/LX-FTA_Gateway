@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
+from fastapi.responses import JSONResponse
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
@@ -260,15 +261,35 @@ def detect_drift(data: SensorReading):
 def fetch_logs():
     return {"logs": get_attack_logs()}
 
+alerts_cache = []
 
-@router.websocket("/ws/alerts")
-async def websocket_alerts(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        await asyncio.sleep(5)  # throttle to avoid flooding
-        await websocket.send_json({
-            "timestamp": datetime.utcnow().isoformat(),
-            "sensor_id": "sensor-x",
-            "message": "Simulated live alert",
-            "level": "info"
-        })
+# Populate alerts_cache with fake data to simulate live alerts (for now)
+def generate_mock_alert():
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "sensor_id": "sensor-x",
+        "message": "Simulated live alert",
+        "level": "info"
+    }
+
+@router.get("/api/alerts")
+def get_latest_alerts():
+    # Return last 10 alerts
+    if not alerts_cache:
+        # Simulate a few alerts if none exist
+        for _ in range(3):
+            alerts_cache.append(generate_mock_alert())
+    return JSONResponse(content={"alerts": alerts_cache[-10:]})
+#
+#
+# @router.websocket("/ws/alerts")
+# async def websocket_alerts(websocket: WebSocket):
+#     await websocket.accept()
+#     while True:
+#         await asyncio.sleep(5)  # throttle to avoid flooding
+#         await websocket.send_json({
+#             "timestamp": datetime.utcnow().isoformat(),
+#             "sensor_id": "sensor-x",
+#             "message": "Simulated live alert",
+#             "level": "info"
+#         })
