@@ -232,7 +232,7 @@ async def replay_protection(req: ReplayRequest):
     }
 
 
-@router.post("/simulate/spoofing")
+@router.post("/spoofing")
 async def simulate_spoofing_attack(data: SpoofingRequest = Body(...)):
     await validate_sensor_id(data.sensor_id)
 
@@ -305,7 +305,7 @@ def generate_mock_alert():
     }
 
 
-@router.post("/simulate/replay")
+@router.post("/replay")
 async def simulate_replay_attack(req: ReplayRequest):
     await validate_sensor_id(req.sensor_id)
 
@@ -343,7 +343,7 @@ async def simulate_replay_attack(req: ReplayRequest):
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
 
 
-@router.post("/simulate/firmware")
+@router.post("/firmware")
 async def simulate_firmware_attack(data: FirmwareUpload):
     await validate_sensor_id(data.sensor_id)
 
@@ -373,7 +373,7 @@ async def simulate_firmware_attack(data: FirmwareUpload):
 from app.simulate_attacks.ml_evasion_detector import SensorReading, model
 
 
-@router.post("/simulate/ml_evasion")
+@router.post("/ml_evasion")
 async def simulate_ml_evasion_attack(data: SensorReading):
     sensor_id = data.sensor_id
     await validate_sensor_id(sensor_id)
@@ -405,7 +405,7 @@ async def simulate_ml_evasion_attack(data: SensorReading):
 ddos_window: Dict[str, List[datetime]] = defaultdict(list)
 
 
-@router.post("/simulate/ddos")
+@router.post("/ddos")
 async def simulate_ddos_attack(request: Request):
     data = await request.json()
     sensor_id = data.get("sensor_id")
