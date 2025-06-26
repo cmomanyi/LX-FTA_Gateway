@@ -14,8 +14,10 @@ from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
 from app.simulate_attacks.ml_evasion_detector import SensorReading, model
-from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
+
+from fastapi import Body
 from app.simulate_attacks.spoofing_threat import SpoofingRequest
+from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
 
 router = APIRouter()
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -230,6 +232,34 @@ async def replay_protection(req: ReplayRequest):
     }
 
 
+@router.post("/simulate/spoofing")
+async def simulate_spoofing_attack(data: SpoofingRequest = Body(...)):
+    await validate_sensor_id(data.sensor_id)
+
+    expected_sig = hashlib.sha256((data.sensor_id + data.payload).encode()).hexdigest()
+    is_invalid = data.ecc_signature != expected_sig
+
+    if is_invalid:
+        message = "🔴 Spoofing attack simulated — ECC Signature Mismatch"
+        severity = "High"
+        blocked = True
+    else:
+        message = "✅ Signature appears valid"
+        severity = "None"
+        blocked = False
+
+    log_attack(data.sensor_id, "spoofing", message, severity=severity)
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "sensor_id": data.sensor_id,
+        "attack_type": "spoofing",
+        "message": message,
+        "severity": severity,
+        "blocked": blocked
+    }
+
+
 @router.post("/api/drift-detect")
 async def detect_drift(data: SensorReading):
     sensor_id = data.sensor_id
@@ -265,6 +295,7 @@ def fetch_logs():
 # Simulated alerts
 alerts_cache = []
 
+
 def generate_mock_alert():
     return {
         "timestamp": datetime.utcnow().isoformat(),
@@ -272,6 +303,146 @@ def generate_mock_alert():
         "message": "Simulated live alert",
         "level": "info"
     }
+
+
+@router.post("/simulate/replay")
+async def simulate_replay_attack(req: ReplayRequest):
+    await validate_sensor_id(req.sensor_id)
+
+    # Check for replay (duplicate nonce)
+    if req.nonce in USED_NONCES:
+        message = "🔴 Replay Detected — Duplicate Nonce"
+        log_attack(req.sensor_id, "replay", message, severity="High")
+        return {
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensor_id": req.sensor_id,
+            "attack_type": "replay",
+            "message": message,
+            "severity": "High",
+            "blocked": True
+        }
+
+    # Check for stale timestamp
+    if not is_fresh_timestamp(req.timestamp):
+        raise HTTPException(status_code=400, detail="Stale timestamp")
+
+    # Mark nonce as used
+    USED_NONCES.add(req.nonce)
+    message = "✅ Payload Accepted — Fresh Nonce"
+    log_attack(req.sensor_id, "replay", message, severity="None")
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "sensor_id": req.sensor_id,
+        "attack_type": "replay",
+        "message": message,
+        "severity": "None",
+        "blocked": False
+    }
+
+
+from app.simulate_attacks.FirmwareUpload import FirmwareUpload
+
+
+@router.post("/simulate/firmware")
+async def simulate_firmware_attack(data: FirmwareUpload):
+    await validate_sensor_id(data.sensor_id)
+
+    is_valid_signature = data.firmware_signature == "valid_signature_123"
+
+    if not is_valid_signature:
+        message = "🔴 Firmware Rejected — Invalid Signature"
+        severity = "High"
+        blocked = True
+    else:
+        message = "✅ Firmware Verified"
+        severity = "None"
+        blocked = False
+
+    log_attack(data.sensor_id, "firmware_injection", message, severity=severity)
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "sensor_id": data.sensor_id,
+        "attack_type": "firmware_injection",
+        "message": message,
+        "severity": severity,
+        "blocked": blocked
+    }
+
+
+from app.simulate_attacks.ml_evasion_detector import SensorReading, model
+
+
+@router.post("/simulate/ml_evasion")
+async def simulate_ml_evasion_attack(data: SensorReading):
+    sensor_id = data.sensor_id
+    await validate_sensor_id(sensor_id)
+
+    readings = np.array(data.values).reshape(-1, 1)
+    preds = model.predict(readings)
+
+    if -1 in preds:
+        message = "🔴 ML Evasion Attempt — Drift Detected"
+        severity = "High"
+        blocked = True
+    else:
+        message = "✅ Sensor Stable — No Drift"
+        severity = "None"
+        blocked = False
+
+    log_attack(sensor_id, "ml_evasion", message, severity=severity)
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "sensor_id": sensor_id,
+        "attack_type": "ml_evasion",
+        "message": message,
+        "severity": severity,
+        "blocked": blocked
+    }
+
+
+ddos_window: Dict[str, List[datetime]] = defaultdict(list)
+
+
+@router.post("/simulate/ddos")
+async def simulate_ddos_attack(request: Request):
+    data = await request.json()
+    sensor_id = data.get("sensor_id")
+    threshold = data.get("threshold", 10)
+
+    await validate_sensor_id(sensor_id)
+
+    now = datetime.utcnow()
+    ddos_window[sensor_id].append(now)
+
+    # Only keep requests from last 10 seconds
+    ddos_window[sensor_id] = [
+        t for t in ddos_window[sensor_id] if (now - t).total_seconds() <= 10
+    ]
+
+    request_count = len(ddos_window[sensor_id])
+
+    if request_count > threshold:
+        message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
+        severity = "High"
+        blocked = True
+    else:
+        message = f"No DDoS detected — {request_count}/{threshold}"
+        severity = "None"
+        blocked = False
+
+    log_attack(sensor_id, "ddos", message, severity=severity)
+
+    return {
+        "timestamp": now.isoformat(),
+        "sensor_id": sensor_id,
+        "attack_type": "ddos",
+        "message": message,
+        "severity": severity,
+        "blocked": blocked
+    }
+
 
 @router.get("/api/alerts")
 def get_latest_alerts():

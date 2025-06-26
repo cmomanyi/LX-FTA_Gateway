@@ -90,4 +90,18 @@ Admin Console:
             "version": "1.0"
             }
 
-   
+   #How to run on your local 
+
+In terminal (inside backend/):
+
+bash
+Copy
+Edit
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+or inside Docker (if using the Dockerfile):
+
+bash
+Copy
+Edit
+docker build -t lx-fta-backend .
+docker run -d -p 8000:8000 lx-fta-backend

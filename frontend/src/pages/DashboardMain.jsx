@@ -37,7 +37,7 @@ const DashboardMain = () => {
     const [liveLogs, setLiveLogs] = useState([]);
 
     useEffect(() => {
-        fetch("https://api.lx-gateway.tech/api/sensor-types")
+        fetch("http://localhost:8000/api/sensor-types")
             .then((res) => res.json())
             .then((data) => {
                 setSensorTypes(data.sensor_types || []);
@@ -45,7 +45,7 @@ const DashboardMain = () => {
             })
             .catch((err) => console.error("Failed to fetch sensor types", err));
 
-        fetch("https://api.lx-gateway.tech/api/attack-types")
+        fetch("http://localhost:8000/api/attack-types")
             .then((res) => res.json())
             .then((data) => {
                 setAttackTypes(data.attack_types || []);
@@ -56,7 +56,7 @@ const DashboardMain = () => {
     useEffect(() => {
         const fetchAlerts = async () => {
             try {
-                const response = await fetch("https://api.lx-gateway.tech/api/alerts");
+                const response = await fetch("http://localhost:8000/api/alerts");
                 const data = await response.json();
                 setLiveLogs(data.alerts || []);
             } catch (err) {
@@ -87,7 +87,7 @@ const DashboardMain = () => {
             return alert("Invalid JSON in attack data.");
         }
 
-        fetch(`https://api.lx-gateway.tech/simulate/${selectedAttack}`, {
+        fetch(`http://localhost:8000/simulate/${selectedAttack}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: payload
