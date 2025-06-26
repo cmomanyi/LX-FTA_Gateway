@@ -116,7 +116,11 @@ def get_attack_types():
                     "sensor_id": "sensor-x",
                     "threshold": 10
                 }
-            }
+            },
+            {"type": "sensor_hijack", "description": "Simulates a hijacked sensor stream", "sample": {"sensor_id": "sensor-x"}},
+            {"type": "api_abuse", "description": "Simulates abuse of open API endpoints", "sample": {"sensor_id": "sensor-x"}},
+            {"type": "tamper_breach", "description": "Simulates unauthorized tampering", "sample": {"sensor_id": "sensor-x"}},
+            {"type": "side_channel", "description": "Simulates side-channel data leakage", "sample": {"sensor_id": "sensor-x"}}
         ]
     }
 
@@ -238,6 +242,45 @@ async def simulate_ddos_attack(request: Request):
         "severity": severity,
         "blocked": blocked
     }
+@router.post("/simulate/sensor_hijack")
+async def simulate_sensor_hijack(data: AttackRequest):
+    await validate_sensor_id(data.sensor_id)
+    message = "🔴 Sensor Hijack Attempt — Stream Manipulated"
+    severity = "High"
+    blocked = True
+    log_attack(data.sensor_id, "sensor_hijack", message, severity=severity)
+    return {"timestamp": datetime.utcnow().isoformat(), "sensor_id": data.sensor_id, "attack_type": "sensor_hijack", "message": message, "severity": severity, "blocked": blocked}
+
+
+@router.post("/simulate/api_abuse")
+async def simulate_api_abuse(data: AttackRequest):
+    await validate_sensor_id(data.sensor_id)
+    message = "🔴 API Abuse Detected — Unauthorized Access Pattern"
+    severity = "High"
+    blocked = True
+    log_attack(data.sensor_id, "api_abuse", message, severity=severity)
+    return {"timestamp": datetime.utcnow().isoformat(), "sensor_id": data.sensor_id, "attack_type": "api_abuse", "message": message, "severity": severity, "blocked": blocked}
+
+
+@router.post("/simulate/tamper_breach")
+async def simulate_tamper_breach(data: AttackRequest):
+    await validate_sensor_id(data.sensor_id)
+    message = "🔴 Tamper Breach — Physical Layer Compromised"
+    severity = "High"
+    blocked = True
+    log_attack(data.sensor_id, "tamper_breach", message, severity=severity)
+    return {"timestamp": datetime.utcnow().isoformat(), "sensor_id": data.sensor_id, "attack_type": "tamper_breach", "message": message, "severity": severity, "blocked": blocked}
+
+
+@router.post("/simulate/side_channel")
+async def simulate_side_channel(data: AttackRequest):
+    await validate_sensor_id(data.sensor_id)
+    message = "🔴 Side-Channel Leak — Timing/Data Access Exploited"
+    severity = "High"
+    blocked = True
+    log_attack(data.sensor_id, "side_channel", message, severity=severity)
+    return {"timestamp": datetime.utcnow().isoformat(), "sensor_id": data.sensor_id, "attack_type": "side_channel", "message": message, "severity": severity, "blocked": blocked}
+
 
 
 @router.get("/api/logs")
