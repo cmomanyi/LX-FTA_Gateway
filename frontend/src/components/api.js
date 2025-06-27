@@ -41,3 +41,11 @@ export const fetchAllPlantSensors = async () =>
  * @returns {Promise<Object>}
  */
 export const fetchAllThreatSensors = async () => (await fetch("https://api.lx-gateway.tech/api/threat")).json();
+
+export const fetchSensorAverages = async () => {
+    const response = await fetch("https://api.lx-gateway.tech/api/averages");
+    if (!response.ok) {
+        throw new Error("Failed to fetch sensor averages");
+    }
+    return response.json();
+};

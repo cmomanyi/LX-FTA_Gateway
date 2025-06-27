@@ -25,12 +25,12 @@ def get_anomalies():
     return [log.dict() for log in anomaly_logs]
 
 
-@router.websocket("/ws/alerts")
-async def alert_websocket(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            for log in anomaly_logs[-5:]:
-                await websocket.send_json(log.dict())
-    except Exception:
-        await websocket.close()
+# @router.websocket("/ws/alerts")
+# async def alert_websocket(websocket: WebSocket):
+#     await websocket.accept()
+#     try:
+#         while True:
+#             for log in anomaly_logs[-5:]:
+#                 await websocket.send_json(log.dict())
+#     except Exception:
+#         await websocket.close()
