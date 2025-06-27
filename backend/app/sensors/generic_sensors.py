@@ -47,14 +47,24 @@ async def refresh_sensor_data():
         ]:
             fetched = get_all_items(model, table)
             randomized = []
+
             for item in fetched:
                 item_dict = item.dict()
+
                 for key, val in item_dict.items():
                     if isinstance(val, (int, float)):
-                        item_dict[key] = round(val * random.uniform(0.9, 1.1), 2)
+                        # Apply a slight jitter based on magnitude
+                        jitter = random.uniform(-0.5, 0.5) if abs(val) > 5 else random.uniform(-0.2, 0.2)
+                        item_dict[key] = round(val + jitter, 2)
+
+                # Add random status and updated_at timestamp
                 item_dict["status"] = random.choice(sensor_status[sensor_type])
+                item_dict["updated_at"] = datetime.utcnow().isoformat()
+
                 randomized.append(model(**item_dict))
+
             latest_data_cache[sensor_type] = randomized
+
         await asyncio.sleep(5)
 
 
@@ -63,6 +73,7 @@ async def startup_event():
     asyncio.create_task(refresh_sensor_data())
 
 
+# Sensor data endpoints
 @sensor_router.get("/api/soil", response_model=list[SoilData])
 def get_soil_data():
     return latest_data_cache["soil"]
@@ -88,6 +99,7 @@ def get_plant_data():
     return latest_data_cache["plant"]
 
 
+# Anomaly logging
 @sensor_router.post("/log/anomaly")
 async def log_anomaly(request: Request):
     anomaly = await request.json()
@@ -101,6 +113,7 @@ def get_anomalies():
     return anomaly_logs
 
 
+# Fake audit log generator
 def generate_fake_log(sensor_type: str, sensor_num: int):
     return {
         "time": datetime.utcnow().isoformat(),
@@ -118,8 +131,14 @@ async def get_audit_logs():
             logs.append(generate_fake_log(sensor_type, i))
     return logs
 
+
+# Sensor Averages
 def compute_averages(data: list[dict], fields: list[str]):
-    return {field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2) for field in fields}
+    return {
+        field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2)
+        for field in fields
+    }
+
 
 @sensor_router.get("/api/averages")
 async def get_sensor_averages():
@@ -131,15 +150,9 @@ async def get_sensor_averages():
         "water": compute_averages([d.dict() for d in get_all_items(WaterData, "water")],
                                   ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
         "plant": compute_averages([d.dict() for d in get_all_items(PlantData, "plant")],
-                                  ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk", "stem_diameter"]),
+                                  ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk",
+                                   "stem_diameter"]),
         "threat": compute_averages([d.dict() for d in get_all_items(ThreatData, "threat")],
-                                   ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts", "anomaly_score"])
+                                   ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts",
+                                    "anomaly_score"])
     }
-# @sensor_router.get("/")
-# def read_root():
-#     return {"message": "✅ Secure Gateway API is running."}
-
-
-# @sensor_router.get("/health")
-# def health():
-#     return {"status": "ok"}

@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FirmwareDashboard from "./pages/FirmwareDashboard";
 import Unauthorized from "./pages/Unauthorized";
 import ThreatDashboard from "./components/ThreatDashboard";
+import GenericSimulationSensor from "./pages/GenericSimulationSensor";
 
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="/firmwaredashboard" element={<FirmwareDashboard />} />
                 <Route path="/attackV2" element={<ThreatDashboard />} />
+                <Route path="/simulateattacks" element={<GenericSimulationSensor />} />
+
                 <Route path="*" element={<Navigate to="/unauthorized" />} />
             </Routes>
         </Router>

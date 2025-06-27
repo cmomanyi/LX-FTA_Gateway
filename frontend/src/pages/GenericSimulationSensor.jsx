@@ -5,7 +5,6 @@ import {
     fetchAllWaterSensors,
     fetchAllPlantSensors,
     fetchAllThreatSensors,
-    fetchSensorAverages,
 } from "../components/api";
 import { Line } from "react-chartjs-2";
 import {
@@ -16,11 +15,10 @@ import {
     PointElement,
     Tooltip,
     Legend,
-    Filler // ✅ Required for fill: true
 } from "chart.js";
 import Layout from "../components/Layout";
 
-ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
+ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
 
 const SENSOR_CONFIG = {
     soil: {
@@ -55,42 +53,28 @@ const SENSOR_CONFIG = {
     }
 };
 
-const GenericDashboard = () => {
+const GenericSimulationSensor = () => {
     const [sensorType, setSensorType] = useState("soil");
     const [sensorIndex, setSensorIndex] = useState(0);
     const [allSensors, setAllSensors] = useState([]);
-    const [sensorData, setSensorData] = useState(null);
-    const [averages, setAverages] = useState({});
 
     useEffect(() => {
         const fetchData = async () => {
             const config = SENSOR_CONFIG[sensorType];
-            if (!config) return;
-
-            try {
-                const fullData = await config.fetch();
-                const avgData = await fetchSensorAverages();
-
-                const cloned = JSON.parse(JSON.stringify(fullData)); // Deep clone
-                setAllSensors(cloned);
-                setAverages(avgData);
-
-                if (cloned[sensorIndex]) {
-                    setSensorData(cloned[sensorIndex]);
-                    console.log("✅ Updated sensorData:", cloned[sensorIndex]);
-                }
-            } catch (error) {
-                console.error("❌ Fetch error:", error);
+            if (config) {
+                const data = await config.fetch();
+                setAllSensors(data);
+                setSensorIndex(0);
             }
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 5000);
+        const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, [sensorType, sensorIndex]);
+    }, [sensorType]);
 
+    const sensorData = allSensors[sensorIndex];
     const config = SENSOR_CONFIG[sensorType];
-    const avgData = averages[sensorType];
 
     const renderChart = () => {
         if (!sensorData || !config) return <p>Loading...</p>;
@@ -115,47 +99,19 @@ const GenericDashboard = () => {
                                 data: chartData,
                                 backgroundColor: "rgba(153,102,255,0.4)",
                                 borderColor: "rgba(153,102,255,1)",
-                                fill: true, // ✅ Now works because Filler plugin is registered
+                                fill: true,
                                 tension: 0.3,
                             },
                         ],
-                    }}
-                    options={{
-                        animation: {
-                            duration: 500
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                            }
-                        }
                     }}
                 />
             </>
         );
     };
 
-    const renderAverages = () => {
-        if (!avgData || !config) return null;
-
-        return (
-            <div className="absolute top-4 right-4 bg-white border shadow-lg rounded p-4 w-64 z-10">
-                <h2 className="text-md font-semibold mb-2">📊 Avg {sensorType} metrics</h2>
-                <ul className="text-sm">
-                    {Object.entries(avgData).map(([key, value]) => (
-                        <li key={key} className="mb-1">
-                            <strong>{key.replace(/_/g, " ")}:</strong> {parseFloat(value).toFixed(2)}
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        );
-    };
-
     return (
         <Layout>
-            <div className="relative p-6 font-sans min-h-screen">
-                {renderAverages()}
+            <div className="p-6 font-sans">
                 <header className="mb-6">
                     <h1 className="text-3xl font-bold mb-4">🌐 Sensor Network Dashboard</h1>
 
@@ -190,12 +146,10 @@ const GenericDashboard = () => {
                     </div>
                 </header>
 
-                <main>
-                    {renderChart()}
-                </main>
+                <main>{renderChart()}</main>
             </div>
         </Layout>
     );
 };
 
-export default GenericDashboard;
+export default GenericSimulationSensor;
