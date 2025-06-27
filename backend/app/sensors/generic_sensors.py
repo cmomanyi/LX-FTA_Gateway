@@ -35,33 +35,31 @@ latest_data_cache = {
     "plant": []
 }
 
+original_sensor_data = {
+    "soil": [],
+    "atmosphere": [],
+    "water": [],
+    "threat": [],
+    "plant": []
+}
+
 
 async def refresh_sensor_data():
     while True:
-        for sensor_type, model, table in [
-            ("soil", SoilData, "soil"),
-            ("atmosphere", AtmosphericData, "atmospheric"),
-            ("water", WaterData, "water"),
-            ("threat", ThreatData, "threat"),
-            ("plant", PlantData, "plant")
-        ]:
-            fetched = get_all_items(model, table)
+        for sensor_type in ["soil", "atmosphere", "water", "threat", "plant"]:
             randomized = []
 
-            for item in fetched:
+            for item in original_sensor_data[sensor_type]:
                 item_dict = item.dict()
 
                 for key, val in item_dict.items():
                     if isinstance(val, (int, float)):
-                        # Apply a slight jitter based on magnitude
                         jitter = random.uniform(-0.5, 0.5) if abs(val) > 5 else random.uniform(-0.2, 0.2)
                         item_dict[key] = round(val + jitter, 2)
 
-                # Add random status and updated_at timestamp
                 item_dict["status"] = random.choice(sensor_status[sensor_type])
                 item_dict["updated_at"] = datetime.utcnow().isoformat()
-
-                randomized.append(model(**item_dict))
+                randomized.append(type(item)(**item_dict))
 
             latest_data_cache[sensor_type] = randomized
 
@@ -70,6 +68,16 @@ async def refresh_sensor_data():
 
 @sensor_router.on_event("startup")
 async def startup_event():
+    # Fetch once from DB
+    for sensor_type, model, table in [
+        ("soil", SoilData, "soil"),
+        ("atmosphere", AtmosphericData, "atmospheric"),
+        ("water", WaterData, "water"),
+        ("threat", ThreatData, "threat"),
+        ("plant", PlantData, "plant")
+    ]:
+        original_sensor_data[sensor_type] = get_all_items(model, table)
+
     asyncio.create_task(refresh_sensor_data())
 
 
@@ -99,7 +107,6 @@ def get_plant_data():
     return latest_data_cache["plant"]
 
 
-# Anomaly logging
 @sensor_router.post("/log/anomaly")
 async def log_anomaly(request: Request):
     anomaly = await request.json()
@@ -113,7 +120,6 @@ def get_anomalies():
     return anomaly_logs
 
 
-# Fake audit log generator
 def generate_fake_log(sensor_type: str, sensor_num: int):
     return {
         "time": datetime.utcnow().isoformat(),
@@ -132,7 +138,6 @@ async def get_audit_logs():
     return logs
 
 
-# Sensor Averages
 def compute_averages(data: list[dict], fields: list[str]):
     return {
         field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2)
@@ -143,16 +148,16 @@ def compute_averages(data: list[dict], fields: list[str]):
 @sensor_router.get("/api/averages")
 async def get_sensor_averages():
     return {
-        "soil": compute_averages([d.dict() for d in get_all_items(SoilData, "soil")],
+        "soil": compute_averages([d.dict() for d in original_sensor_data["soil"]],
                                  ["temperature", "moisture", "ph", "nutrient_level"]),
-        "atmosphere": compute_averages([d.dict() for d in get_all_items(AtmosphericData, "atmospheric")],
+        "atmosphere": compute_averages([d.dict() for d in original_sensor_data["atmosphere"]],
                                        ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
-        "water": compute_averages([d.dict() for d in get_all_items(WaterData, "water")],
+        "water": compute_averages([d.dict() for d in original_sensor_data["water"]],
                                   ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
-        "plant": compute_averages([d.dict() for d in get_all_items(PlantData, "plant")],
+        "plant": compute_averages([d.dict() for d in original_sensor_data["plant"]],
                                   ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk",
                                    "stem_diameter"]),
-        "threat": compute_averages([d.dict() for d in get_all_items(ThreatData, "threat")],
+        "threat": compute_averages([d.dict() for d in original_sensor_data["threat"]],
                                    ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts",
                                     "anomaly_score"])
     }
