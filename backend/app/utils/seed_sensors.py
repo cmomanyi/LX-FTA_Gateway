@@ -5,7 +5,7 @@ import boto3
 from app.model.basic_sensor_model import (
     SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 )
-from app.utils.dynamodb_helper import put_item
+from app.utils.dynamodb_helper import put_item_db
 
 # Use credentials from ~/.aws/credentials under the default profile
 session = boto3.Session(profile_name="default", region_name="us-east-1")
@@ -23,7 +23,7 @@ def seed_soil_data():
             battery_level=round(random.uniform(10.0, 100.0), 2),
             status=random.choice(["active", "sleeping", "compromised"])
         )
-        put_item(data, "soil", dynamodb)
+        put_item_db(data, "soil", dynamodb)
 
 
 def seed_atmospheric_data():
@@ -38,7 +38,7 @@ def seed_atmospheric_data():
             battery_level=round(random.uniform(10.0, 100.0), 2),
             status=random.choice(["active", "sleeping", "compromised"])
         )
-        put_item(data, "atmospheric", dynamodb)
+        put_item_db(data, "atmospheric", dynamodb)
 
 
 def seed_water_data():
@@ -53,7 +53,7 @@ def seed_water_data():
             battery_level=round(random.uniform(10.0, 100.0), 2),
             status=random.choice(["active", "sleeping", "compromised"])
         )
-        put_item(data, "water", dynamodb)
+        put_item_db(data, "water", dynamodb)
 
 
 def seed_threat_data():
@@ -68,7 +68,7 @@ def seed_threat_data():
             battery_level=round(random.uniform(10.0, 100.0), 2),
             status=random.choice(["active", "compromised", "alerting"])
         )
-        put_item(data, "threat", dynamodb)
+        put_item_db(data, "threat", dynamodb)
 
 
 def seed_plant_data():
@@ -83,7 +83,7 @@ def seed_plant_data():
             battery_level=round(random.uniform(10.0, 100.0), 2),
             status=random.choice(["healthy", "wilting", "diseased"])
         )
-        put_item(data, "plant", dynamodb)
+        put_item_db(data, "plant", dynamodb)
 
 
 def seed_all():
@@ -97,7 +97,7 @@ def seed_all():
 
 def put_item(table_name: str, item: dict):
     table = dynamodb.Table(table_name)
-    table.put_item(Item=item)
+    table.put_item_db(Item=item)
 
 if __name__ == "__main__":
     seed_all()

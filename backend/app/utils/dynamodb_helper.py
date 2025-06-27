@@ -47,4 +47,8 @@ def put_item(data_model, sensor_type: str, dynamodb_client):
         for k, v in data_model.dict().items()
     }
 
-    dynamodb_client.put_item(TableName=table_name, Item=item)
+    dynamodb_client.put_item_db(TableName=table_name, Item=item)
+
+def put_item_db(table_name: str, item: dict):
+    table = dynamodb.Table(table_name)
+    table.put_item_db(Item=item)

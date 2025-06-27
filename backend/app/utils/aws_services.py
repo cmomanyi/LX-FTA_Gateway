@@ -24,7 +24,7 @@ def dynamodb_put_item(payload: dict):
         "timestamp": datetime.utcnow().isoformat(),
         **payload,
     }
-    table.put_item(Item=item)
+    table.put_item_db(Item=item)
     return item
 
 
