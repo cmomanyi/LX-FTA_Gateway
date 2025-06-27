@@ -121,7 +121,7 @@ async def get_audit_logs():
 def compute_averages(data: list[dict], fields: list[str]):
     return {field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2) for field in fields}
 
-@sensor_router.get("/api/sensor-averages")
+@sensor_router.get("/api/averages")
 async def get_sensor_averages():
     return {
         "soil": compute_averages([d.dict() for d in get_all_items(SoilData, "soil")],
