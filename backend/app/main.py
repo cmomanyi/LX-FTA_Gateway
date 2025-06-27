@@ -7,6 +7,7 @@ from app.auth.auth import router as auth_router
 from app.sensors.generic_sensors import router as generic_sensors_router
 from app.simulate_attacks.sensor_simulation_attack import router as simulate_attacks_router
 from app.sensors.generic_threats_simulator import router as generic_threats_simulator_router
+from app.simulate_attacks.shap import router as shap_router
 
 app = FastAPI(title="LX-FTA_Gateway API")
 
@@ -24,6 +25,8 @@ app.include_router(auth_router)
 app.include_router(generic_sensors_router)
 app.include_router(simulate_attacks_router)
 app.include_router(generic_threats_simulator_router)
+
+app.include_router(shap_router)
 
 
 @app.get("/health")

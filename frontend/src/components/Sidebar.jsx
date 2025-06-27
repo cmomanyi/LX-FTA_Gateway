@@ -6,6 +6,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     const navItems = [
         { id: "dashboard", label: "📊 Dashboard" },
         { id: "logs", label: "🧾 Logs" },
+        { id: "shap", label: "🧠 SHAP Insights" },
         { id: "analytics", label: "📈 Analytics" },
     ];
 
@@ -26,9 +27,9 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
                         }`}
                         onClick={() => setActiveTab(item.id)}
                     >
-            <span className={`${collapsed ? "tooltip tooltip-right" : ""}`}>
-              {item.label}
-            </span>
+                        <span className={`${collapsed ? "tooltip tooltip-right" : ""}`}>
+                            {item.label}
+                        </span>
                     </li>
                 ))}
             </ul>
