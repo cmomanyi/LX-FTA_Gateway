@@ -95,5 +95,9 @@ def seed_all():
     print("✅ All sensor data seeded successfully.")
 
 
+def put_item(table_name: str, item: dict):
+    table = dynamodb.Table(table_name)
+    table.put_item(Item=item)
+
 if __name__ == "__main__":
     seed_all()
