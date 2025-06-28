@@ -174,15 +174,6 @@ def get_attack_types():
     }
 
 
-@sensor_router.get("/api/{sensor_type}")
-def get_sensor_data(sensor_type: str):
-    sensor_type = ALIASES.get(sensor_type, sensor_type)
-    print(f"sensor type are {sensor_type}")
-    if sensor_type not in latest_data_cache:
-        raise HTTPException(status_code=404, detail=f"Sensor type '{sensor_type}' not found.")
-    return latest_data_cache[sensor_type]
-
-
 @sensor_router.get("/api/averages")
 def get_sensor_averages():
     def compute_averages(data: list[dict], fields: list[str]):
@@ -205,6 +196,15 @@ def get_sensor_averages():
                                    ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts",
                                     "anomaly_score"])
     }
+
+
+@sensor_router.get("/api/{sensor_type}")
+def get_sensor_data(sensor_type: str):
+    sensor_type = ALIASES.get(sensor_type, sensor_type)
+    print(f"sensor type are {sensor_type}")
+    if sensor_type not in latest_data_cache:
+        raise HTTPException(status_code=404, detail=f"Sensor type '{sensor_type}' not found.")
+    return latest_data_cache[sensor_type]
 
 
 # Validation Function
