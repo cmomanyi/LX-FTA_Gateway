@@ -1,11 +1,13 @@
 from datetime import datetime
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 import random
 import asyncio
 from typing import List
 from statistics import mean
 from app.utils.dynamodb_helper import put_item
-from app.model.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+from app.model.basic_sensor_model import (
+    SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+)
 
 sensor_router = APIRouter()
 anomaly_logs = []
@@ -34,42 +36,87 @@ SENSOR_ATTACKS = {
     "threat": ["unauthorized_access", "jamming", "anomaly_score_spike", "radiation_leak"]
 }
 
-latest_data_cache = {key: [] for key in TABLE_MAP.keys()}
+ALIASES = {
+    "atmospheric": "atmosphere"
+}
+
+latest_data_cache = {
+    "soil": [],
+    "atmosphere": [],
+    "water": [],
+    "threat": [],
+    "plant": []
+}
 
 
-# ------------------ Sensor Generators ------------------
+# Sensor Data Generators
 
-def generate_soil_sensor(i): return _generate_sensor(
-    i, SoilData, TABLE_MAP["soil"], "soil", {
-        "temperature": (15, 30), "moisture": (20, 70), "ph": (5.0, 7.5),
-        "nutrient_level": (1.0, 5.0)
-    })
-
-
-def generate_atmospheric_sensor(i): return _generate_sensor(
-    i, AtmosphericData, TABLE_MAP["atmosphere"], "atm", {
-        "air_temperature": (10, 35), "humidity": (30, 90),
-        "co2": (300, 700), "wind_speed": (0, 15), "rainfall": (0, 50)
-    })
-
-
-def generate_water_sensor(i): return _generate_sensor(
-    i, WaterData, TABLE_MAP["water"], "water", {
-        "flow_rate": (1.0, 10.0), "water_level": (50, 200),
-        "salinity": (0.1, 5.0), "ph": (6.0, 8.0), "turbidity": (1, 10)
-    })
+def generate_soil_sensor(index: int) -> SoilData:
+    item = SoilData(
+        sensor_id=f"soil-{1000 + index}",
+        temperature=round(random.uniform(15, 30), 2),
+        moisture=round(random.uniform(20, 70), 2),
+        ph=round(random.uniform(5.0, 7.5), 2),
+        nutrient_level=round(random.uniform(1.0, 5.0), 2),
+        battery_level=round(random.uniform(20, 100), 2),
+        status=random.choice(sensor_status["soil"]),
+        updated_at=datetime.utcnow().isoformat()
+    )
+    put_item(TABLE_MAP["soil"], item.dict())
+    return item
 
 
-def generate_plant_sensor(i): return _generate_sensor(
-    i, PlantData, TABLE_MAP["plant"], "plant", {
-        "leaf_moisture": (30, 80), "chlorophyll_level": (1.0, 5.0),
-        "growth_rate": (0.5, 3.0), "disease_risk": (0.0, 1.0), "stem_diameter": (0.5, 2.0)
-    })
+def generate_atmospheric_sensor(index: int) -> AtmosphericData:
+    item = AtmosphericData(
+        sensor_id=f"atm-{2000 + index}",
+        air_temperature=round(random.uniform(10, 35), 2),
+        humidity=round(random.uniform(30, 90), 2),
+        co2=round(random.uniform(300, 700), 2),
+        wind_speed=round(random.uniform(0, 15), 2),
+        rainfall=round(random.uniform(0, 50), 2),
+        battery_level=round(random.uniform(30, 100), 2),
+        status=random.choice(sensor_status["atmosphere"]),
+        updated_at=datetime.utcnow().isoformat()
+    )
+    put_item(TABLE_MAP["atmosphere"], item.dict())
+    return item
 
 
-def generate_threat_sensor(i):
+def generate_water_sensor(index: int) -> WaterData:
+    item = WaterData(
+        sensor_id=f"water-{3000 + index}",
+        flow_rate=round(random.uniform(1.0, 10.0), 2),
+        water_level=round(random.uniform(50, 200), 2),
+        salinity=round(random.uniform(0.1, 5.0), 2),
+        ph=round(random.uniform(6.0, 8.0), 2),
+        turbidity=round(random.uniform(1, 10), 2),
+        battery_level=round(random.uniform(20, 100), 2),
+        status=random.choice(sensor_status["water"]),
+        updated_at=datetime.utcnow().isoformat()
+    )
+    put_item(TABLE_MAP["water"], item.dict())
+    return item
+
+
+def generate_plant_sensor(index: int) -> PlantData:
+    item = PlantData(
+        sensor_id=f"plant-{4000 + index}",
+        leaf_moisture=round(random.uniform(30, 80), 2),
+        chlorophyll_level=round(random.uniform(1.0, 5.0), 2),
+        growth_rate=round(random.uniform(0.5, 3.0), 2),
+        disease_risk=round(random.uniform(0.0, 1.0), 2),
+        stem_diameter=round(random.uniform(0.5, 2.0), 2),
+        battery_level=round(random.uniform(20, 100), 2),
+        status=random.choice(sensor_status["plant"]),
+        updated_at=datetime.utcnow().isoformat()
+    )
+    put_item(TABLE_MAP["plant"], item.dict())
+    return item
+
+
+def generate_threat_sensor(index: int) -> ThreatData:
     item = ThreatData(
-        sensor_id=f"threat-{5000 + i}",
+        sensor_id=f"threat-{5000 + index}",
         unauthorized_access=random.randint(0, 5),
         jamming_signal=random.randint(0, 3),
         tampering_attempts=random.randint(0, 4),
@@ -83,21 +130,7 @@ def generate_threat_sensor(i):
     return item
 
 
-def _generate_sensor(i, model, table, prefix, value_ranges):
-    base = {
-        "sensor_id": f"{prefix}-{1000 + i}",
-        "battery_level": round(random.uniform(20, 100), 2),
-        "status": random.choice(sensor_status[prefix if prefix != "atm" else "atmosphere"]),
-        "updated_at": datetime.utcnow().isoformat()
-    }
-    for field, (low, high) in value_ranges.items():
-        base[field] = round(random.uniform(low, high), 2)
-    item = model(**base)
-    put_item(table, item.dict())
-    return item
-
-
-# ------------------ Refresher ------------------
+# Refresher
 
 async def refresh_sensor_data():
     while True:
@@ -114,54 +147,37 @@ async def startup_event():
     asyncio.create_task(refresh_sensor_data())
 
 
-# ------------------ API Endpoints ------------------
-
-@sensor_router.get("/api/{sensor_type}", response_model=List)
-def get_sensor_data(sensor_type: str):
-    return latest_data_cache[sensor_type]
-
-
+# Unified Sensor Data Route
+# ✅ GET /api/averages must come BEFORE the generic /api/{sensor_type} route
 @sensor_router.get("/api/averages")
 def get_sensor_averages():
-    def avg(data: list, fields: list[str]):
+    def compute_averages(data: list[dict], fields: list[str]):
         return {
             field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2)
             for field in fields
         }
 
     return {
-        "soil": avg([d.dict() for d in latest_data_cache["soil"]], ["temperature", "moisture", "ph", "nutrient_level"]),
-        "atmosphere": avg([d.dict() for d in latest_data_cache["atmosphere"]],
-                          ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
-        "water": avg([d.dict() for d in latest_data_cache["water"]],
-                     ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
-        "plant": avg([d.dict() for d in latest_data_cache["plant"]],
-                     ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk", "stem_diameter"]),
-        "threat": avg([d.dict() for d in latest_data_cache["threat"]],
-                      ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts", "anomaly_score"])
+        "soil": compute_averages([d.dict() for d in latest_data_cache["soil"]],
+                                 ["temperature", "moisture", "ph", "nutrient_level"]),
+        "atmosphere": compute_averages([d.dict() for d in latest_data_cache["atmosphere"]],
+                                       ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
+        "water": compute_averages([d.dict() for d in latest_data_cache["water"]],
+                                  ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
+        "plant": compute_averages([d.dict() for d in latest_data_cache["plant"]],
+                                  ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk",
+                                   "stem_diameter"]),
+        "threat": compute_averages([d.dict() for d in latest_data_cache["threat"]],
+                                   ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts",
+                                    "anomaly_score"])
     }
 
 
-# ------------------ Anomaly & Audit Logging ------------------
-
-@sensor_router.post("/log/anomaly")
-async def log_anomaly(request: Request):
-    data = await request.json()
-    anomaly_logs.append(data)
-    print("Anomaly logged:", data)
-    return {"status": "logged"}
-
-
-@sensor_router.get("/log/anomalies")
-def get_anomalies():
-    return anomaly_logs
-
-
-@sensor_router.get("/api/audit")
-def get_audit_logs():
-    return [{
-        "time": datetime.utcnow().isoformat(),
-        "sensor": f"{sensor_type}-{str(i).zfill(3)}",
-        "type": random.choice(SENSOR_ATTACKS[sensor_type]),
-        "status": random.choice(["secure", "blocked"])
-    } for sensor_type in SENSOR_ATTACKS for i in range(1, 4)]
+# 👇 Generic sensor fetch goes after
+@sensor_router.get("/api/{sensor_type}")
+def get_sensor_data(sensor_type: str):
+    sensor_type = ALIASES.get(sensor_type, sensor_type)
+    if sensor_type not in latest_data_cache:
+        raise HTTPException(status_code=404, detail=f"Sensor type '{sensor_type}' not found.")
+    print(f"🔍 Accessed sensor type: {sensor_type} at {datetime.utcnow().isoformat()}")
+    return latest_data_cache[sensor_type]
