@@ -2,6 +2,7 @@ from decimal import Decimal
 import boto3
 import uuid
 from datetime import datetime
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 
@@ -33,3 +34,22 @@ def log_access(sensor_type: str, endpoint: str, client_ip: str):
         "timestamp": datetime.utcnow().isoformat()
     }
     table.put_item(Item=item)
+
+
+AUDIT_TABLE_NAME = "lx-fta-audit-logs"
+
+
+def put_alert_to_audit_log(alert: dict) -> bool:
+    try:
+        table = dynamodb.Table(AUDIT_TABLE_NAME)
+        table.put_item(Item=alert)
+        return True
+    except ClientError as e:
+        print(f"❌ Error saving alert to audit logs: {e}")
+        return False
+
+
+def get_recent_audit_logs(limit=10):
+    table = dynamodb.Table(AUDIT_TABLE_NAME)
+    response = table.scan(Limit=limit)
+    return response.get("Items", [])
