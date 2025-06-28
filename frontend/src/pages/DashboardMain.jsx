@@ -54,7 +54,7 @@ const DashboardMain = () => {
     const [liveLogs, setLiveLogs] = useState([]);
 
     useEffect(() => {
-        fetch("https://api.lx-gateway.tech/api/sensor-types")
+        fetch("https://api.lx-gateway.tech/api/type_senser")
             .then(res => res.json())
             .then(data => {
                 setSensorTypes(data.sensor_types || []);

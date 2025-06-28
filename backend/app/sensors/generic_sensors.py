@@ -145,10 +145,20 @@ async def refresh_sensor_data():
 async def startup_event():
     asyncio.create_task(refresh_sensor_data())
 
+@sensor_router.get("/api/type_senser")
+async def get_sensor_types():
+    await cache_sensor_ids()
+    return {
+        "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
+        "sensor_ids": list(sensor_id_cache)
+    }
+
 
 @sensor_router.get("/api/sensor-ids")
 def list_sensor_ids():
     return {"sensor_ids": list(sensor_id_cache)}
+
+
 
 
 @sensor_router.get("/api/attack-types")
@@ -203,14 +213,6 @@ def get_sensor_averages():
     }
 
 
-@sensor_router.get("/api/sensor-type")
-async def get_sensor_types():
-    await cache_sensor_ids()
-    return {
-        "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
-        "sensor_ids": list(sensor_id_cache)
-    }
-
 @sensor_router.get("/api/logs")
 def fetch_logs():
     return {"logs": get_attack_logs()}
@@ -227,6 +229,7 @@ def get_latest_alerts():
                 "level": "info"
             })
     return JSONResponse(content={"alerts": _alerts_cache[-10:]})
+
 
 @sensor_router.get("/api/{sensor_type}")
 def get_sensor_data(sensor_type: str):
