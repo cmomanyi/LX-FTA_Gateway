@@ -56,16 +56,6 @@ async def validate_sensor_id(sensor_id: str):
     if sensor_id not in sensor_id_cache:
         raise HTTPException(status_code=400, detail="Invalid sensor ID")
     return True
-@router.get("/api/sensor-type")
-async def get_sensor_types():
-    await cache_sensor_ids()
-    return {
-        "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
-        "sensor_ids": list(sensor_id_cache)
-    }
-
-
-
 
 
 def persist_attack_log(sensor_id: str, attack_type: str, message: str, severity: str):
@@ -205,19 +195,3 @@ async def simulate_side_channel(data: AttackRequest):
             "message": message, "severity": severity, "blocked": blocked}
 
 
-@router.get("/api/logs")
-def fetch_logs():
-    return {"logs": get_attack_logs()}
-
-
-@router.get("/api/alerts")
-def get_latest_alerts():
-    if not _alerts_cache:
-        for _ in range(3):
-            _alerts_cache.append({
-                "timestamp": datetime.utcnow().isoformat(),
-                "sensor_id": "sensor-x",
-                "message": "Simulated live alert",
-                "level": "info"
-            })
-    return JSONResponse(content={"alerts": _alerts_cache[-10:]})

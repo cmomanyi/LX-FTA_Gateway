@@ -4,6 +4,11 @@ from fastapi import APIRouter, HTTPException
 import random
 import asyncio
 from statistics import mean
+
+from starlette.responses import JSONResponse
+
+from app.simulate_attacks.attack_log import get_attack_logs
+from app.simulate_attacks.sensor_simulation_attack import cache_sensor_ids, _alerts_cache
 from app.utils.dynamodb_helper import put_item
 from app.model.basic_sensor_model import (
     SoilData, AtmosphericData, WaterData, ThreatData, PlantData
@@ -197,6 +202,31 @@ def get_sensor_averages():
                                     "anomaly_score"])
     }
 
+
+@sensor_router.get("/api/sensor-type")
+async def get_sensor_types():
+    await cache_sensor_ids()
+    return {
+        "sensor_types": ["soil", "water", "plant", "atmospheric", "threat"],
+        "sensor_ids": list(sensor_id_cache)
+    }
+
+@sensor_router.get("/api/logs")
+def fetch_logs():
+    return {"logs": get_attack_logs()}
+
+
+@sensor_router.get("/api/alerts")
+def get_latest_alerts():
+    if not _alerts_cache:
+        for _ in range(3):
+            _alerts_cache.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "sensor_id": "sensor-x",
+                "message": "Simulated live alert",
+                "level": "info"
+            })
+    return JSONResponse(content={"alerts": _alerts_cache[-10:]})
 
 @sensor_router.get("/api/{sensor_type}")
 def get_sensor_data(sensor_type: str):
