@@ -1,103 +1,259 @@
-// SHAPDashboard.jsx
-import React, { useEffect, useState } from "react";
+// import React, { useState } from "react";
+// import axios from "axios";
+//
+// const SENSOR_FIELDS = {
+//     soil: {
+//         model: "SoilData",
+//         fields: ["temperature", "moisture", "ph", "nutrient_level", "battery_level"]
+//     },
+//     atmosphere: {
+//         model: "AtmosphericData",
+//         fields: ["air_temperature", "humidity", "co2", "wind_speed", "rainfall", "battery_level"]
+//     },
+//     water: {
+//         model: "WaterData",
+//         fields: ["flow_rate", "water_level", "salinity", "ph", "turbidity", "battery_level"]
+//     },
+//     plant: {
+//         model: "PlantData",
+//         fields: ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk", "stem_diameter", "battery_level"]
+//     },
+//     threat: {
+//         model: "ThreatData",
+//         fields: ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts", "anomaly_score", "battery_level"]
+//     }
+// };
+//
+// const ShapDashboard = () => {
+//     const [sensorType, setSensorType] = useState("soil");
+//     const [inputValues, setInputValues] = useState({});
+//     const [response, setResponse] = useState(null);
+//
+//     const handleChange = (field, value) => {
+//         setInputValues(prev => ({ ...prev, [field]: value }));
+//     };
+//
+//     const handleSubmit = async () => {
+//         try {
+//             const res = await axios.post(`http://localhost:8000/api/shap/explain?sensor_type=${sensorType}`, inputValues);
+//             setResponse(res.data);
+//         } catch (err) {
+//             console.error(err);
+//             alert("Failed to fetch SHAP explanation. Check console for details.");
+//         }
+//     };
+//
+//     const fields = SENSOR_FIELDS[sensorType].fields;
+//
+//     return (
+//         <div className="p-6">
+//             <h2 className="text-xl font-bold mb-4">🔍 SHAP Model Explanation</h2>
+//
+//             <label className="font-medium">Sensor Type:</label>
+//             <select
+//                 className="border rounded px-2 py-1 mb-4 block"
+//                 value={sensorType}
+//                 onChange={(e) => {
+//                     setSensorType(e.target.value);
+//                     setInputValues({}); // Reset fields on sensor change
+//                     setResponse(null);
+//                 }}
+//             >
+//                 {Object.keys(SENSOR_FIELDS).map(type => (
+//                     <option key={type} value={type}>{type}</option>
+//                 ))}
+//             </select>
+//
+//             {fields.map(field => (
+//                 <div key={field} className="mb-2">
+//                     <label className="block text-sm font-semibold">{field.replace(/_/g, ' ')}:</label>
+//                     <input
+//                         type="number"
+//                         value={inputValues[field] || ""}
+//                         onChange={(e) => handleChange(field, parseFloat(e.target.value))}
+//                         className="border px-2 py-1 rounded w-full"
+//                     />
+//                 </div>
+//             ))}
+//
+//             <button
+//                 onClick={handleSubmit}
+//                 className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+//             >
+//                 Get SHAP Explanation
+//             </button>
+//
+//             {response && (
+//                 <div className="mt-6 bg-white p-4 shadow rounded">
+//                     <h3 className="text-md font-semibold">Prediction: {response.prediction}</h3>
+//                     <p className="text-sm">Base Value: {response.base_value}</p>
+//                     <ul className="text-sm mt-2">
+//                         {response.features.map((f, idx) => (
+//                             <li key={idx}>
+//                                 <strong>{f.feature}:</strong> {f.contribution}
+//                             </li>
+//                         ))}
+//                     </ul>
+//                 </div>
+//             )}
+//         </div>
+//     );
+// };
+//
+// export default ShapDashboard;
+// ShapDashboard.jsx
+import React, { useState } from "react";
 import axios from "axios";
 
-const SHAPDashboard = () => {
-    const [shapData, setShapData] = useState(null);
-    const [expanded, setExpanded] = useState(true);
+const SENSOR_TYPES = ["soil", "atmosphere", "water", "plant", "threat"];
+
+const DUMMY_DATA = {
+    soil: {
+        sensor_id: "soil-1001",
+        temperature: 24.3,
+        moisture: 55.0,
+        ph: 6.5,
+        nutrient_level: 3.2,
+        battery_level: 4.1,
+        status: "active"
+    },
+    atmosphere: {
+        sensor_id: "atm-2002",
+        air_temperature: 29.4,
+        humidity: 60,
+        co2: 420,
+        wind_speed: 5,
+        rainfall: 15,
+        battery_level: 3.7,
+        status: "active"
+    },
+    water: {
+        sensor_id: "water-3003",
+        flow_rate: 3,
+        water_level: 150,
+        salinity: 2.5,
+        ph: 7.0,
+        turbidity: 5,
+        battery_level: 4,
+        status: "active"
+    },
+    plant: {
+        sensor_id: "plant-4004",
+        leaf_moisture: 60,
+        chlorophyll_level: 3.1,
+        growth_rate: 2.0,
+        disease_risk: 0.3,
+        stem_diameter: 1.2,
+        battery_level: 4,
+        status: "healthy"
+    },
+    threat: {
+        sensor_id: "threat-5005",
+        unauthorized_access: 1,
+        jamming_signal: 0,
+        tampering_attempts: 0,
+        spoofing_attempts: 1,
+        anomaly_score: 0.7,
+        battery_level: 4,
+        status: "alerting"
+    }
+};
+
+const ShapDashboard = () => {
+    const [sensorType, setSensorType] = useState("soil");
+    const [explanation, setExplanation] = useState(null);
+    const [forceImage, setForceImage] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const fetchShap = async () => {
-            setLoading(true);
-            try {
-                const res = await axios.get("https://api.lx-gateway.tech/api/shap/latest");
-                setShapData(res.data);
-            } catch (error) {
-                console.error("Failed to fetch SHAP explanation", error);
-            }
-            setLoading(false);
-        };
-        fetchShap();
-    }, []);
-
-    const handleDownloadImage = () => {
-        if (shapData?.image) {
-            const link = document.createElement("a");
-            link.href = `data:image/png;base64,${shapData.image}`;
-            link.download = `shap-explanation-${shapData.attack_type}.png`;
-            link.click();
+    const handleExplain = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.post(
+                `https://api.lx-gateway.tech/api/shap/explain?sensor_type=${sensorType}`,
+                DUMMY_DATA[sensorType]
+            );
+            setExplanation(response.data);
+        } catch (error) {
+            console.error("Explain error:", error);
         }
+        setLoading(false);
+    };
+
+    const handleForcePlot = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.post(
+                `https://api.lx-gateway.tech/api/shap/force-plot?sensor_type=${sensorType}`,
+                DUMMY_DATA[sensorType]
+            );
+            setForceImage(response.data.image_base64);
+        } catch (error) {
+            console.error("Force plot error:", error);
+        }
+        setLoading(false);
     };
 
     return (
-        <div className="p-6 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
-            <h1 className="text-3xl font-bold mb-6 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-                {expanded ? "🔍 SHAP Insights Dashboard (Click to Collapse)" : "🔍 SHAP Insights Dashboard (Click to Expand)"}
-            </h1>
+        <div className="p-6 font-sans min-h-screen bg-gray-100">
+            <h1 className="text-2xl font-bold mb-4">SHAP Explanation Dashboard</h1>
 
-            {expanded && (
-                <>
-                    <p className="mb-4 text-md">
-                        The <strong>XAI/SHAP Panel</strong> provides explainable AI (XAI) feedback whenever an attack leads to access denial or anomaly detection. It leverages <strong>SHAP</strong> values to visually break down which input features (e.g., sensor ID, frequency, temperature, firmware version) most influenced the model’s decision.
-                    </p>
+            <label className="mr-2 font-medium">Sensor Type:</label>
+            <select
+                className="border px-2 py-1 rounded mb-4"
+                value={sensorType}
+                onChange={(e) => setSensorType(e.target.value)}
+            >
+                {SENSOR_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </option>
+                ))}
+            </select>
 
-                    <p className="mb-4 text-md">
-                        For example, in a <em>Sensor Hijack</em> case, the <code>sensor_id</code> may be the top contributor. In <em>ML Evasion</em>, drift in values like temperature or pH might stand out. These SHAP visuals support forensic analysis and responsible AI audits.
-                    </p>
+            <div className="space-x-4 mb-6">
+                <button
+                    onClick={handleExplain}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                    Explain
+                </button>
+                <button
+                    onClick={handleForcePlot}
+                    className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+                >
+                    Show Force Plot
+                </button>
+            </div>
 
-                    <h2 className="text-xl font-semibold mt-6 mb-2">📌 Live SHAP Insights</h2>
-                    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded mb-4 text-sm">
-                        {loading ? (
-                            <p>Loading SHAP explanation...</p>
-                        ) : shapData ? (
-                            <>
-                                <p className="mb-2 font-medium">Detected Attack: {shapData.attack_type}</p>
-                                <ul className="list-disc list-inside">
-                                    {Object.entries(shapData.contributions).map(([feature, value]) => (
-                                        <li key={feature}>
-                                            {feature} ➝ <span className="text-red-600 dark:text-red-400 font-semibold">{value > 0 ? `+${value}` : value}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <p className="mt-2">⛔ Total contribution ➝ <strong>{shapData.total_score}</strong> ➝ Access Blocked</p>
-                                {shapData.image && (
-                                    <>
-                                        <img src={`data:image/png;base64,${shapData.image}`} alt="SHAP Plot" className="mt-4 rounded shadow" />
-                                        <button
-                                            onClick={handleDownloadImage}
-                                            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                                        >
-                                            ⬇️ Download SHAP Plot
-                                        </button>
-                                    </>
-                                )}
-                            </>
-                        ) : (
-                            <p>No SHAP insights available yet.</p>
-                        )}
-                    </div>
+            {loading && <p className="text-sm text-gray-600">Loading...</p>}
 
-                    <h2 className="text-xl font-semibold mt-6 mb-2">🎯 What This Panel Shows</h2>
-                    <ul className="list-disc list-inside pl-4 mt-2">
-                        <li>🔍 Why was access blocked?</li>
-                        <li>🔑 What features triggered anomaly?</li>
-                        <li>🛠️ How can we tune policies better?</li>
+            {explanation && (
+                <div className="bg-white rounded shadow p-4 mb-6">
+                    <h2 className="text-lg font-semibold mb-2">Prediction: {explanation.prediction}</h2>
+                    <p className="text-sm text-gray-500 mb-4">Base value: {explanation.base_value}</p>
+                    <ul className="text-sm">
+                        {explanation.features.map((f) => (
+                            <li key={f.feature}>
+                                <strong>{f.feature}</strong>: {f.contribution}
+                            </li>
+                        ))}
                     </ul>
+                </div>
+            )}
 
-                    <h2 className="text-xl font-semibold mt-6 mb-2">🔗 Resources</h2>
-                    <a
-                        href="https://chatgpt.com/canvas/shared/68226f1b2458819190c4242451219908"
-                        className="text-blue-600 dark:text-blue-400 underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        👉 View Full SHAP Implementation Guide
-                    </a>
-                </>
+            {forceImage && (
+                <div className="bg-white rounded shadow p-4">
+                    <h2 className="text-lg font-semibold mb-2">SHAP Force Plot</h2>
+                    <img
+                        src={`data:image/png;base64,${forceImage}`}
+                        alt="SHAP force plot"
+                        className="w-full max-w-3xl"
+                    />
+                </div>
             )}
         </div>
     );
 };
 
-export default SHAPDashboard;
+export default ShapDashboard;
+

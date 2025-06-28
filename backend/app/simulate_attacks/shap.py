@@ -1,58 +1,113 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+from app.model.basic_sensor_model import SoilData, AtmosphericData, WaterData, ThreatData, PlantData
+
 import shap
 import numpy as np
+import pandas as pd
+from sklearn.ensemble import IsolationForest
 from datetime import datetime
-from app.simulate_attacks.ml_evasion_detector import model  # Pretrained IsolationForest or similar
-from app.simulate_attacks.attack_log import get_attack_logs
+import base64
+import matplotlib.pyplot as plt
+from io import BytesIO
 
-router = APIRouter()
+shap_router = APIRouter(prefix="/api/shap", tags=["SHAP"])
 
-# Dummy mapping for feature names for demonstration
-FEATURE_NAMES = ["sensor_id", "temperature", "moisture", "pH", "battery_level", "request_frequency"]
+# Sensor type → Pydantic Model
+model_map = {
+    "soil": SoilData,
+    "atmosphere": AtmosphericData,
+    "water": WaterData,
+    "threat": ThreatData,
+    "plant": PlantData
+}
+
+# SHAP input feature map (manually exclude non-numeric or metadata fields)
+input_features = {
+    "soil": ["temperature", "moisture", "ph", "nutrient_level", "battery_level"],
+    "atmosphere": ["air_temperature", "humidity", "co2", "wind_speed", "rainfall", "battery_level"],
+    "water": ["flow_rate", "water_level", "salinity", "ph", "turbidity", "battery_level"],
+    "threat": ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts", "anomaly_score", "battery_level"],
+    "plant": ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk", "stem_diameter", "battery_level"]
+}
+
+# Dummy training data (generate more realistic values if needed)
+train_data_map = {
+    k: pd.DataFrame({f: np.random.normal(5, 2, 100) for f in fields})
+    for k, fields in input_features.items()
+}
+
+# Model + Explainer per sensor type
+shap_models = {}
+shap_explainers = {}
+for sensor_type, df in train_data_map.items():
+    clf = IsolationForest(contamination=0.1)
+    clf.fit(df)
+    shap_models[sensor_type] = clf
+    shap_explainers[sensor_type] = shap.Explainer(clf.predict, df)
 
 
-# Embed sensor ID as numeric encoding for SHAP use (mocked)
-def encode_sensor_id(sensor_id: str) -> int:
-    return abs(hash(sensor_id)) % 10000
+@shap_router.post("/explain")
+async def explain_shap(request: Request):
+    sensor_type = request.query_params.get("sensor_type")
+    if not sensor_type:
+        raise HTTPException(status_code=400, detail="sensor_type is required")
 
+    model_cls = model_map.get(sensor_type)
+    if not model_cls:
+        raise HTTPException(status_code=400, detail=f"Unsupported sensor type: {sensor_type}")
 
-@router.get("/api/shap/latest")
-async def explain_latest_blocked():
-    logs = get_attack_logs()
-    blocked_logs = [log for log in reversed(logs) if log.get("blocked") and "sensor_id" in log]
+    data = await request.json()
+    try:
+        validated = model_cls(**data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    if not blocked_logs:
-        return JSONResponse(status_code=404, content={"error": "No blocked attacks available for SHAP explanation."})
+    features = input_features[sensor_type]
+    input_df = pd.DataFrame([{k: getattr(validated, k) for k in features}])
+    explainer = shap_explainers[sensor_type]
+    prediction = shap_models[sensor_type].predict(input_df)[0]
+    shap_values = explainer(input_df)
 
-    latest = blocked_logs[0]
-    sensor_id = latest["sensor_id"]
-    attack_type = latest["attack_type"]
-
-    # Simulate corresponding sensor input vector for SHAP
-    encoded_id = encode_sensor_id(sensor_id)
-    np.random.seed(encoded_id)  # Deterministic mock features
-    input_features = np.array([
-        encoded_id,  # encoded sensor ID
-        np.random.uniform(20, 90),  # temperature
-        np.random.uniform(0.1, 0.9),  # moisture
-        np.random.uniform(4.0, 9.0),  # pH
-        np.random.uniform(10, 100),  # battery level
-        np.random.randint(1, 100)  # request frequency
-    ])
-
-    input_data = input_features.reshape(1, -1)
-    explainer = shap.Explainer(model, masker=shap.maskers.Independent(input_data))
-    shap_values = explainer(input_data)
-
-    # Extract contributions
-    contribs = dict(zip(FEATURE_NAMES, shap_values.values[0].tolist()))
-    total_score = sum(shap_values.values[0])
-
-    return {
-        "timestamp": datetime.utcnow().isoformat(),
-        "sensor_id": sensor_id,
-        "attack_type": attack_type,
-        "contributions": contribs,
-        "total_score": total_score
+    explanation = {
+        "sensor_type": sensor_type,
+        "prediction": "Blocked" if prediction == -1 else "Allowed",
+        "features": [
+            {"feature": f, "contribution": round(v, 4)}
+            for f, v in zip(features, shap_values.values[0])
+        ],
+        "base_value": round(shap_values.base_values[0], 4),
+        "timestamp": datetime.utcnow().isoformat()
     }
+    return JSONResponse(content=explanation)
+
+
+@shap_router.post("/force-plot")
+async def shap_force_plot(request: Request):
+    sensor_type = request.query_params.get("sensor_type")
+    if not sensor_type or sensor_type not in input_features:
+        raise HTTPException(status_code=400, detail="Valid sensor_type required")
+
+    model_cls = model_map[sensor_type]
+    data = await request.json()
+
+    try:
+        validated = model_cls(**data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    features = input_features[sensor_type]
+    input_df = pd.DataFrame([{k: getattr(validated, k) for k in features}])
+
+    shap_values = shap_explainers[sensor_type](input_df)
+
+    # Create matplotlib force plot and convert to base64
+    plt.clf()
+    shap.plots.waterfall(shap_values[0], show=False)
+    buf = BytesIO()
+    plt.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    encoded = base64.b64encode(buf.read()).decode("utf-8")
+    buf.close()
+
+    return JSONResponse(content={"image_base64": encoded})
