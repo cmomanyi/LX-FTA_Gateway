@@ -174,10 +174,19 @@ def get_sensor_averages():
 
 
 # 👇 Generic sensor fetch goes after
-@sensor_router.get("/api/{sensor_type}")
-def get_sensor_data(sensor_type: str):
-    sensor_type = ALIASES.get(sensor_type, sensor_type)
-    if sensor_type not in latest_data_cache:
-        raise HTTPException(status_code=404, detail=f"Sensor type '{sensor_type}' not found.")
-    print(f"🔍 Accessed sensor type: {sensor_type} at {datetime.utcnow().isoformat()}")
-    return latest_data_cache[sensor_type]
+# @sensor_router.get("/api/{sensor_type}")
+# def get_sensor_data(sensor_type: str):
+#     sensor_type = ALIASES.get(sensor_type, sensor_type)
+#     if sensor_type not in latest_data_cache:
+#         raise HTTPException(status_code=404, detail=f"Sensor type '{sensor_type}' not found.")
+#     print(f"🔍 Accessed sensor type: {sensor_type} at {datetime.utcnow().isoformat()}")
+#     return latest_data_cache[sensor_type]
+
+@sensor_router.get("/api/sensor-types")
+def list_sensor_types():
+    return {
+        "sensor_types": list(latest_data_cache.keys()),
+        "aliases": ALIASES
+    }
+
+

@@ -61,7 +61,7 @@ async def validate_sensor_id(sensor_id: str):
     return True
 
 
-@router.get("/api/sensor-types")
+@router.get("/api/sensor-type")
 async def get_sensor_types():
     sensor_ids = await fetch_all_sensor_ids()
     return {
