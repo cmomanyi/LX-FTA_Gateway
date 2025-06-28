@@ -4,14 +4,14 @@ import random
 import asyncio
 from typing import List
 from statistics import mean
+from app.utils.dynamodb_helper import put_item
 
 from app.model.basic_sensor_model import (
     SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 )
-from app.utils.dynamodb_helper import put_item_db
+
 
 sensor_router = APIRouter()
-
 anomaly_logs = []
 
 sensor_status = {
@@ -52,7 +52,7 @@ def generate_soil_sensor(index: int) -> SoilData:
         status=random.choice(sensor_status["soil"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item_db("soil", item.dict())
+    put_item("soil", item.dict())
     return item
 
 
@@ -68,7 +68,7 @@ def generate_atmospheric_sensor(index: int) -> AtmosphericData:
         status=random.choice(sensor_status["atmosphere"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item_db("atmospheric", item.dict())
+    put_item("atmospheric", item.dict())
     return item
 
 
@@ -84,7 +84,7 @@ def generate_water_sensor(index: int) -> WaterData:
         status=random.choice(sensor_status["water"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item_db("water", item.dict())
+    put_item("water", item.dict())
     return item
 
 
@@ -100,7 +100,7 @@ def generate_plant_sensor(index: int) -> PlantData:
         status=random.choice(sensor_status["plant"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item_db("plant", item.dict())
+    put_item("plant", item.dict())
     return item
 
 
@@ -115,7 +115,7 @@ def generate_threat_sensor(index: int) -> ThreatData:
         status=random.choice(sensor_status["threat"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item_db("threat", item.dict())
+    put_item("threat", item.dict())
     return item
 
 
