@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Request, HTTPException, Body
 from fastapi.responses import JSONResponse
 from typing import List, Dict
@@ -6,13 +8,14 @@ from collections import defaultdict
 import asyncio
 import hashlib
 import numpy as np
+import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
 from app.simulate_attacks.FirmwareUpload import FirmwareUpload
 from app.simulate_attacks.ml_evasion_detector import SensorReading, model
-from app.simulate_attacks.spoofing_threat import SpoofingRequest
+from app.simulate_attacks.spoofing_threat import SpoofingRequest, validate_ecc
 from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp, USED_NONCES
 from app.cache.sensor_cache import sensor_id_cache
 from app.utils.dynamodb_helper import put_item, scan_table
@@ -23,6 +26,8 @@ _ddos_window: Dict[str, List[datetime]] = defaultdict(list)
 _alerts_cache = []
 DDB_LOG_TABLE = "lx-fta-audit-logs"
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Fetch all sensor IDs from DynamoDB tables
 async def fetch_all_sensor_ids_from_tables():
@@ -43,13 +48,11 @@ async def fetch_all_sensor_ids_from_tables():
                 sensor_ids.add(item["sensor_id"])
     return sensor_ids
 
-
 # Fetch valid sensor IDs only once into cache
 async def cache_sensor_ids():
     if not sensor_id_cache:
         valid_ids = await fetch_all_sensor_ids_from_tables()
         sensor_id_cache.update(valid_ids)
-
 
 async def validate_sensor_id(sensor_id: str):
     await cache_sensor_ids()
@@ -60,6 +63,7 @@ async def validate_sensor_id(sensor_id: str):
 
 def persist_attack_log(sensor_id: str, attack_type: str, message: str, severity: str):
     log_entry = {
+        "id": str(uuid.uuid4()),
         "timestamp": datetime.utcnow().isoformat(),
         "sensor_id": sensor_id,
         "attack_type": attack_type,
@@ -72,32 +76,45 @@ def persist_attack_log(sensor_id: str, attack_type: str, message: str, severity:
 
 @router.post("/simulate/ddos")
 async def simulate_ddos_attack(request: Request):
-    data = await request.json()
-    sensor_id = data.get("sensor_id")
-    threshold = data.get("threshold", 10)
-    await validate_sensor_id(sensor_id)
-    now = datetime.utcnow()
-    _ddos_window[sensor_id].append(now)
-    _ddos_window[sensor_id] = [t for t in _ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
-    request_count = len(_ddos_window[sensor_id])
-    if request_count > threshold:
-        message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
-        severity = "High"
-        blocked = True
-    else:
-        message = f"No DDoS detected — {request_count}/{threshold}"
-        severity = "None"
-        blocked = False
-    persist_attack_log(sensor_id, "ddos", message, severity)
-    return {"timestamp": now.isoformat(), "sensor_id": sensor_id, "attack_type": "ddos", "message": message,
-            "severity": severity, "blocked": blocked}
+    try:
+        data = await request.json()
+        sensor_id = data.get("sensor_id")
+        threshold = data.get("threshold", 10)
+        await validate_sensor_id(sensor_id)
+        now = datetime.utcnow()
+        _ddos_window[sensor_id].append(now)
+        _ddos_window[sensor_id] = [t for t in _ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
+        request_count = len(_ddos_window[sensor_id])
+        if request_count > threshold:
+            message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
+            severity = "🔴 High"
+            blocked = True
+        else:
+            message = f"No DDoS detected — {request_count}/{threshold}"
+            severity = "✅ None"
+            blocked = False
+        put_item(DDB_LOG_TABLE, {
+            "timestamp": now.isoformat(),
+            "sensor_id": sensor_id,
+            "attack_type": "ddos",
+            "message": message,
+            "severity": severity
+        })
+        log_attack(sensor_id, "ddos", message, severity)
+        return {"timestamp": now.isoformat(), "sensor_id": sensor_id, "attack_type": "ddos", "message": message,
+                "severity": severity, "blocked": blocked}
+    except Exception as e:
+        logger.exception("DDoS simulation failed")
+        raise HTTPException(status_code=500, detail=f"Failed to simulate DDoS attack {e}")
 
 
 @router.post("/simulate/spoofing")
 async def simulate_spoofing_attack(data: SpoofingRequest):
     await validate_sensor_id(data.sensor_id)
-    expected_sig = hashlib.sha256((data.sensor_id + data.payload).encode()).hexdigest()
-    is_invalid = data.ecc_signature != expected_sig
+    # expected_sig = hashlib.sha256((data.sensor_id + data.payload).encode()).hexdigest()
+
+    is_invalid = not validate_ecc(data.sensor_id, data.payload, data.ecc_signature)
+    # is_invalid = data.ecc_signature != expected_sig
     message = "🔴 Spoofing attack simulated — ECC Signature Mismatch" if is_invalid else "✅ Signature appears valid"
     severity = "High" if is_invalid else "None"
     blocked = is_invalid

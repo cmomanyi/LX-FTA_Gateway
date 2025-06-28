@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 import random
 import asyncio
 from statistics import mean
+import logging
 
 from starlette.responses import JSONResponse
 
@@ -17,6 +18,8 @@ from app.cache.sensor_cache import sensor_id_cache, latest_data_cache
 
 sensor_router = APIRouter()
 anomaly_logs = []
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 TABLE_MAP = {
     "soil": "lx-fta-soil-data",
@@ -163,30 +166,33 @@ def list_sensor_ids():
 
 @sensor_router.get("/api/attack-types")
 def get_attack_types():
-    print("test test")
-    return {
-        "attack_types": [
-            {"type": "spoofing", "description": "Simulates ECC signature mismatch",
-             "sample": {"sensor_id": "sensor-x", "payload": "abc123", "ecc_signature": "invalid_hash"}},
-            {"type": "replay", "description": "Sends repeated nonce/timestamp values",
-             "sample": {"sensor_id": "sensor-x", "timestamp": datetime.utcnow().isoformat(), "nonce": "nonce-123456"}},
-            {"type": "firmware", "description": "Attempts to upload invalid firmware signature",
-             "sample": {"sensor_id": "sensor-x", "firmware_version": "1.0.3",
-                        "firmware_signature": "invalid_signature"}},
-            {"type": "ml_evasion", "description": "Triggers a drift detection anomaly",
-             "sample": {"sensor_id": "sensor-x", "values": [1.2, 2.3, 3.4]}},
-            {"type": "ddos", "description": "Sends many requests in a short timeframe",
-             "sample": {"sensor_id": "sensor-x", "threshold": 10}},
-            {"type": "sensor_hijack", "description": "Simulates a hijacked sensor stream",
-             "sample": {"sensor_id": "sensor-x"}},
-            {"type": "api_abuse", "description": "Simulates abuse of open API endpoints",
-             "sample": {"sensor_id": "sensor-x"}},
-            {"type": "tamper_breach", "description": "Simulates unauthorized tampering",
-             "sample": {"sensor_id": "sensor-x"}},
-            {"type": "side_channel", "description": "Simulates side-channel data leakage",
-             "sample": {"sensor_id": "sensor-x"}}
-        ]
-    }
+    try:
+        logger.info("Returning available attack types")
+        return {
+            "attack_types": [
+                {"type": "spoofing", "description": "Simulates ECC signature mismatch",
+                 "sample": {"sensor_id": "sensor-x", "payload": "abc123", "ecc_signature": "invalid_hash"}},
+                {"type": "replay", "description": "Sends repeated nonce/timestamp values",
+                 "sample": {"sensor_id": "sensor-x", "timestamp": datetime.utcnow().isoformat(), "nonce": "nonce-123456"}},
+                {"type": "firmware", "description": "Attempts to upload invalid firmware signature",
+                 "sample": {"sensor_id": "sensor-x", "firmware_version": "1.0.3", "firmware_signature": "invalid_signature"}},
+                {"type": "ml_evasion", "description": "Triggers a drift detection anomaly",
+                 "sample": {"sensor_id": "sensor-x", "values": [1.2, 2.3, 3.4]}},
+                {"type": "ddos", "description": "Sends many requests in a short timeframe",
+                 "sample": {"sensor_id": "sensor-x", "threshold": 10}},
+                {"type": "sensor_hijack", "description": "Simulates a hijacked sensor stream",
+                 "sample": {"sensor_id": "sensor-x"}},
+                {"type": "api_abuse", "description": "Simulates abuse of open API endpoints",
+                 "sample": {"sensor_id": "sensor-x"}},
+                {"type": "tamper_breach", "description": "Simulates unauthorized tampering",
+                 "sample": {"sensor_id": "sensor-x"}},
+                {"type": "side_channel", "description": "Simulates side-channel data leakage",
+                 "sample": {"sensor_id": "sensor-x"}}
+            ]
+        }
+    except Exception as e:
+        logger.exception("Failed to get attack types")
+        raise HTTPException(status_code=500, detail="Failed to retrieve attack types")
 
 
 @sensor_router.get("/api/averages")
@@ -215,20 +221,28 @@ def get_sensor_averages():
 
 @sensor_router.get("/api/logs")
 def fetch_logs():
-    return {"logs": get_attack_logs()}
+    try:
+        return {"logs": get_attack_logs()}
+    except Exception as e:
+        logger.exception("Failed to fetch logs")
+        raise HTTPException(status_code=500, detail="Error fetching logs")
 
 
 @sensor_router.get("/api/alerts")
 def get_latest_alerts():
-    if not _alerts_cache:
-        for _ in range(3):
-            _alerts_cache.append({
-                "timestamp": datetime.utcnow().isoformat(),
-                "sensor_id": "sensor-x",
-                "message": "Simulated live alert",
-                "level": "info"
-            })
-    return JSONResponse(content={"alerts": _alerts_cache[-10:]})
+    try:
+        if not _alerts_cache:
+            for _ in range(3):
+                _alerts_cache.append({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "sensor_id": "sensor-x",
+                    "message": "Simulated live alert",
+                    "level": "info"
+                })
+        return JSONResponse(content={"alerts": _alerts_cache[-10:]})
+    except Exception as e:
+        logger.exception("Failed to get alerts")
+        raise HTTPException(status_code=500, detail="Error fetching alerts")
 
 
 @sensor_router.get("/api/{sensor_type}")
