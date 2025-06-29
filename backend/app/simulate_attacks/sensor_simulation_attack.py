@@ -1,5 +1,7 @@
+import os
 import uuid
 
+import shap
 from fastapi import APIRouter, Request, HTTPException, Body
 from fastapi.responses import JSONResponse
 from typing import List, Dict
@@ -10,6 +12,9 @@ import hashlib
 import numpy as np
 import logging
 from concurrent.futures import ThreadPoolExecutor
+
+from starlette.responses import FileResponse
+
 
 from app.simulate_attacks.attack_log import log_attack, get_attack_logs
 from app.simulate_attacks.attack_request import AttackRequest
@@ -28,6 +33,7 @@ DDB_LOG_TABLE = "lx-fta-audit-logs"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 # Fetch all sensor IDs from DynamoDB tables
 async def fetch_all_sensor_ids_from_tables():
@@ -48,11 +54,13 @@ async def fetch_all_sensor_ids_from_tables():
                 sensor_ids.add(item["sensor_id"])
     return sensor_ids
 
+
 # Fetch valid sensor IDs only once into cache
 async def cache_sensor_ids():
     if not sensor_id_cache:
         valid_ids = await fetch_all_sensor_ids_from_tables()
         sensor_id_cache.update(valid_ids)
+
 
 async def validate_sensor_id(sensor_id: str):
     await cache_sensor_ids()
@@ -212,3 +220,67 @@ async def simulate_side_channel(data: AttackRequest):
             "message": message, "severity": severity, "blocked": blocked}
 
 
+#### Sharp Explanation
+
+@router.post("/api/shap/explain")
+async def explain_shap(request: Request):
+    try:
+        data = await request.json()
+        features = np.array([[v for v in data.values() if isinstance(v, (int, float))]])
+        feature_names = [k for k, v in data.items() if isinstance(v, (int, float))]
+
+        explainer = shap.Explainer(model)
+        shap_values = explainer(features)
+
+        result = {
+            "prediction": str(model.predict(features)[0]),
+            "base_value": float(shap_values.base_values[0]),
+            "features": [
+                {"feature": fname, "contribution": float(contrib)}
+                for fname, contrib in zip(feature_names, shap_values.values[0])
+            ]
+        }
+        return result
+    except Exception as e:
+        logger.exception("Failed to explain SHAP")
+        raise HTTPException(status_code=500, detail="Error generating explanation")
+
+
+@router.get("/api/shap-explanation/{image_name}")
+def get_shap_image(image_name: str):
+    try:
+        file_path = os.path.join("shap_images", image_name)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Explanation not found")
+        return FileResponse(file_path, media_type="image/png")
+    except Exception as e:
+        logger.exception("Failed to serve SHAP explanation")
+        raise HTTPException(status_code=500, detail="Error serving explanation")
+
+
+@router.post("/api/shap/force-plot")
+async def generate_force_plot(request: Request):
+    import shap
+    import matplotlib.pyplot as plt
+    import base64
+    from io import BytesIO
+
+    try:
+        data = await request.json()
+        features = np.array([[v for v in data.values() if isinstance(v, (int, float))]])
+        explainer = shap.Explainer(model)
+        shap_values = explainer(features)
+
+        # Generate image
+        plt.figure()
+        shap.plots.force(shap_values[0], matplotlib=True, show=False)
+        buf = BytesIO()
+        plt.savefig(buf, format="png")
+        buf.seek(0)
+        encoded = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+        plt.close()
+        return {"image_base64": encoded}
+    except Exception as e:
+        logger.exception("Failed to generate SHAP force plot")
+        raise HTTPException(status_code=500, detail="Error generating force plot")
