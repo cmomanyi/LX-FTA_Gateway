@@ -20,6 +20,19 @@ from app.simulate_attacks.replay_threat import ReplayRequest, is_fresh_timestamp
 from app.cache.sensor_cache import sensor_id_cache
 from app.utils.dynamodb_helper import put_item, scan_table
 
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Request, HTTPException
+from collections import defaultdict
+import logging
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+_ddos_window = defaultdict(list)
+_ddos_blocklist = defaultdict(lambda: None)  # Maps sensor_id to block expiration timestamp
+
+BLOCK_DURATION_SECONDS = 60  # Block for 60 seconds if DDoS detected
+
 router = APIRouter()
 executor = ThreadPoolExecutor()
 _ddos_window: Dict[str, List[datetime]] = defaultdict(list)
@@ -73,6 +86,40 @@ def persist_attack_log(sensor_id: str, attack_type: str, message: str, severity:
     put_item(DDB_LOG_TABLE, log_entry)
     log_attack(sensor_id, attack_type, message, severity)
 
+#
+# @router.post("/simulate/ddos")
+# async def simulate_ddos_attack(request: Request):
+#     try:
+#         data = await request.json()
+#         sensor_id = data.get("sensor_id")
+#         threshold = data.get("threshold", 10)
+#         await validate_sensor_id(sensor_id)
+#         now = datetime.utcnow()
+#         _ddos_window[sensor_id].append(now)
+#         _ddos_window[sensor_id] = [t for t in _ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
+#         request_count = len(_ddos_window[sensor_id])
+#         if request_count > threshold:
+#             message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
+#             severity = "🔴 High"
+#             blocked = True
+#         else:
+#             message = f"No DDoS detected — {request_count}/{threshold}"
+#             severity = "✅ None"
+#             blocked = False
+#         put_item(DDB_LOG_TABLE, {
+#             "timestamp": now.isoformat(),
+#             "sensor_id": sensor_id,
+#             "attack_type": "ddos",
+#             "message": message,
+#             "severity": severity
+#         })
+#         log_attack(sensor_id, "ddos", message, severity)
+#         return {"timestamp": now.isoformat(), "sensor_id": sensor_id, "attack_type": "ddos", "message": message,
+#                 "severity": severity, "blocked": blocked}
+#     except Exception as e:
+#         logger.exception("DDoS simulation failed")
+#         raise HTTPException(status_code=500, detail=f"Failed to simulate DDoS attack {e}")
+
 
 @router.post("/simulate/ddos")
 async def simulate_ddos_attack(request: Request):
@@ -80,19 +127,49 @@ async def simulate_ddos_attack(request: Request):
         data = await request.json()
         sensor_id = data.get("sensor_id")
         threshold = data.get("threshold", 10)
+
         await validate_sensor_id(sensor_id)
         now = datetime.utcnow()
+
+        # Check if sensor is currently blocked
+        block_until = _ddos_blocklist.get(sensor_id)
+        if block_until and now < block_until:
+            message = f"Blocked DDoS request — sensor_id {sensor_id} is under cooldown until {block_until.isoformat()}"
+            severity = "🛑 Blocked"
+            put_item(DDB_LOG_TABLE, {
+                "timestamp": now.isoformat(),
+                "sensor_id": sensor_id,
+                "attack_type": "ddos",
+                "message": message,
+                "severity": severity
+            })
+            log_attack(sensor_id, "ddos", message, severity)
+            return {
+                "timestamp": now.isoformat(),
+                "sensor_id": sensor_id,
+                "attack_type": "ddos",
+                "message": message,
+                "severity": severity,
+                "blocked": True
+            }
+
+        # Update request timestamps
         _ddos_window[sensor_id].append(now)
-        _ddos_window[sensor_id] = [t for t in _ddos_window[sensor_id] if (now - t).total_seconds() <= 10]
+        _ddos_window[sensor_id] = [
+            t for t in _ddos_window[sensor_id] if (now - t).total_seconds() <= 10
+        ]
         request_count = len(_ddos_window[sensor_id])
+
         if request_count > threshold:
             message = f"DDoS attack detected — {request_count} requests (threshold: {threshold})"
             severity = "🔴 High"
+            _ddos_blocklist[sensor_id] = now + timedelta(seconds=BLOCK_DURATION_SECONDS)
             blocked = True
         else:
             message = f"No DDoS detected — {request_count}/{threshold}"
             severity = "✅ None"
             blocked = False
+
         put_item(DDB_LOG_TABLE, {
             "timestamp": now.isoformat(),
             "sensor_id": sensor_id,
@@ -101,12 +178,19 @@ async def simulate_ddos_attack(request: Request):
             "severity": severity
         })
         log_attack(sensor_id, "ddos", message, severity)
-        return {"timestamp": now.isoformat(), "sensor_id": sensor_id, "attack_type": "ddos", "message": message,
-                "severity": severity, "blocked": blocked}
+
+        return {
+            "timestamp": now.isoformat(),
+            "sensor_id": sensor_id,
+            "attack_type": "ddos",
+            "message": message,
+            "severity": severity,
+            "blocked": blocked
+        }
+
     except Exception as e:
         logger.exception("DDoS simulation failed")
-        raise HTTPException(status_code=500, detail=f"Failed to simulate DDoS attack {e}")
-
+        raise HTTPException(status_code=500, detail=f"Failed to simulate DDoS attack: {e}")
 
 @router.post("/simulate/spoofing")
 async def simulate_spoofing_attack(data: SpoofingRequest):
