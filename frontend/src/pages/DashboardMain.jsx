@@ -1,45 +1,15 @@
 // import React, { useEffect, useState } from "react";
 //
 // const attackSamples = {
-//     spoofing: {
-//         sensor_id: "sensor-x",
-//         payload: "abc123",
-//         ecc_signature: "invalid_hash"
-//     },
-//     replay: {
-//         sensor_id: "sensor-x",
-//         timestamp: "",
-//         nonce: ""
-//     },
-//     firmware: {
-//         sensor_id: "sensor-x",
-//         firmware_version: "1.0.3",
-//         firmware_signature: "invalid_signature"
-//     },
-//     ml_evasion: {
-//         sensor_id: "sensor-x",
-//         values: [1.2, 2.3, 3.4]
-//     },
-//     ddos: {
-//         sensor_id: "sensor-x",
-//         threshold: 10
-//     },
-//     sensor_hijack: {
-//         sensor_id: "sensor-x",
-//         unauthorized_access: true
-//     },
-//     api_abuse: {
-//         sensor_id: "sensor-x",
-//         excessive_calls: 200
-//     },
-//     tamper_breach: {
-//         sensor_id: "sensor-x",
-//         casing_opened: true
-//     },
-//     side_channel: {
-//         sensor_id: "sensor-x",
-//         timing_leak: "detected"
-//     }
+//     spoofing: { sensor_id: "sensor-x", payload: "abc123", ecc_signature: "invalid_hash" },
+//     replay: { sensor_id: "sensor-x", timestamp: "", nonce: "" },
+//     firmware: { sensor_id: "sensor-x", firmware_version: "1.0.3", firmware_signature: "invalid_signature" },
+//     ml_evasion: { sensor_id: "sensor-x", values: [1.2, 2.3, 3.4] },
+//     ddos: { sensor_id: "sensor-x", threshold: 10 },
+//     sensor_hijack: { sensor_id: "sensor-x", unauthorized_access: true },
+//     api_abuse: { sensor_id: "sensor-x", excessive_calls: 200 },
+//     tamper_breach: { sensor_id: "sensor-x", casing_opened: true },
+//     side_channel: { sensor_id: "sensor-x", timing_leak: "detected" }
 // };
 //
 // const DashboardMain = () => {
@@ -52,6 +22,7 @@
 //     const [attackData, setAttackData] = useState("");
 //     const [ddosThreshold, setDdosThreshold] = useState(10);
 //     const [liveLogs, setLiveLogs] = useState([]);
+//     const [resultMessage, setResultMessage] = useState("");
 //
 //     useEffect(() => {
 //         fetch("https://api.lx-gateway.tech/api/type_senser")
@@ -85,14 +56,16 @@
 //
 //     const handleAttack = () => {
 //         if (!selectedID || !selectedAttack) {
-//             return alert("Please select sensor ID and attack type.");
+//             setResultMessage("❗ Please select both Sensor ID and Attack Type.");
+//             return;
 //         }
 //
 //         let payload;
 //         try {
 //             payload = JSON.stringify(JSON.parse(attackData || "{}"));
 //         } catch (e) {
-//             return alert("Invalid JSON in attack data.");
+//             setResultMessage("❗ Invalid JSON in attack data.");
+//             return;
 //         }
 //
 //         fetch(`https://api.lx-gateway.tech/simulate/${selectedAttack}`, {
@@ -102,9 +75,20 @@
 //         })
 //             .then(res => res.json())
 //             .then(result => {
-//                 alert(`Attack simulation result: ${result.message}`);
+//                 const isBlocked =
+//                     result.blocked ||
+//                     result.severity?.toLowerCase().includes("high") ||
+//                     result.severity?.includes("🛑") ||
+//                     result.message?.toLowerCase().includes("blocked");
+//
+//                 const status = isBlocked ? "🚫 Blocked" : "✅ Allowed";
+//                 setResultMessage(`${status} – ${result.message}`);
+//                 setLiveLogs([]); // clear logs after each attack
 //             })
-//             .catch(err => console.error("Attack simulation failed", err));
+//             .catch(err => {
+//                 console.error("Attack simulation failed", err);
+//                 setResultMessage("❌ Error sending attack.");
+//             });
 //     };
 //
 //     const handleAttackSelect = (val) => {
@@ -156,12 +140,16 @@
 //
 //                 <select onChange={e => setSelectedID(e.target.value)} className="p-2 border rounded">
 //                     <option value="">Select Sensor ID</option>
-//                     {sensorIDs.filter(id => !selectedType || id.startsWith(selectedType.slice(0, 4))).map(id => <option key={id} value={id}>{id}</option>)}
+//                     {sensorIDs.filter(id => !selectedType || id.startsWith(selectedType.slice(0, 4))).map(id => (
+//                         <option key={id} value={id}>{id}</option>
+//                     ))}
 //                 </select>
 //
 //                 <select onChange={e => handleAttackSelect(e.target.value)} className="p-2 border rounded">
 //                     <option value="">Select Attack Type</option>
-//                     {attackTypes.map(type => <option key={type.type} value={type.type}>{type.type}</option>)}
+//                     {attackTypes.map(type => (
+//                         <option key={type.type} value={type.type}>{type.type}</option>
+//                     ))}
 //                 </select>
 //
 //                 {selectedAttack === "ddos" && (
@@ -170,10 +158,9 @@
 //                         onChange={e => handleThresholdChange(e.target.value)}
 //                         className="p-2 border rounded"
 //                     >
-//                         <option value={5}>5</option>
-//                         <option value={10}>10</option>
-//                         <option value={15}>15</option>
-//                         <option value={20}>20</option>
+//                         {[5, 10, 15, 20].map(v => (
+//                             <option key={v} value={v}>{v}</option>
+//                         ))}
 //                     </select>
 //                 )}
 //
@@ -186,20 +173,45 @@
 //                 />
 //             </div>
 //
-//             <button onClick={handleAttack} className="bg-red-500 text-white px-4 py-2 rounded">Simulate Attack</button>
+//             <button
+//                 onClick={handleAttack}
+//                 className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
+//             >
+//                 Simulate Attack
+//             </button>
+//
+//             {resultMessage && (
+//                 <div className="mt-4 p-3 border rounded bg-gray-50 text-sm text-center">
+//                     {resultMessage}
+//                 </div>
+//             )}
 //
 //             <div className="mt-8">
 //                 <h3 className="text-lg font-semibold mb-2">Live Audit Trail</h3>
-//                 <div className="bg-gray-100 p-4 rounded max-h-60 overflow-auto">
-//                     {liveLogs.map((log, idx) => (
-//                         <div key={idx} className="mb-2 border-b pb-2">
-//                             <p><strong>{log.timestamp}</strong> | {log.sensor_id}</p>
-//                             <p>{(log?.attack_type || "unknown").toUpperCase()}: {log.message}</p>
-//                             <p className={`text-sm ${log.severity === 'High' ? 'text-red-600' : 'text-green-600'}`}>
-//                                 Status: {log.severity === 'High' ? '🚫 Blocked' : '✅ Allowed'} — Severity: {log.severity}
-//                             </p>
-//                         </div>
-//                     ))}
+//                 <div className="bg-gray-100 p-4 rounded max-h-60 overflow-auto text-sm">
+//                     {liveLogs.map((log, idx) => {
+//                         const severity = log.severity || "Unknown";
+//                         const isBlocked =
+//                             log.blocked ||
+//                             log.severity?.toLowerCase().includes("high") ||
+//                             log.severity?.includes("🛑") ||
+//                             log.message?.toLowerCase().includes("blocked");
+//
+//                         const status = isBlocked ? "🚫 Blocked" : "✅ Allowed";
+//                         const severityClass = severity.includes("High") || severity.includes("🛑")
+//                             ? "text-red-600"
+//                             : "text-green-600";
+//
+//                         return (
+//                             <div key={idx} className="mb-2 border-b pb-2">
+//                                 <p><strong>{log.timestamp || "N/A"}</strong> | {log.sensor_id || "unknown"}</p>
+//                                 <p>{(log.attack_type || "unknown").toUpperCase()}: {log.message || "No message"}</p>
+//                                 <p className={`text-xs ${severityClass}`}>
+//                                     Status: {status} — Severity: {severity}
+//                                 </p>
+//                             </div>
+//                         );
+//                     })}
 //                 </div>
 //             </div>
 //         </div>
@@ -232,6 +244,7 @@ const DashboardMain = () => {
     const [attackData, setAttackData] = useState("");
     const [ddosThreshold, setDdosThreshold] = useState(10);
     const [liveLogs, setLiveLogs] = useState([]);
+    const [resultMessage, setResultMessage] = useState("");
 
     useEffect(() => {
         fetch("https://api.lx-gateway.tech/api/type_senser")
@@ -265,14 +278,16 @@ const DashboardMain = () => {
 
     const handleAttack = () => {
         if (!selectedID || !selectedAttack) {
-            return alert("Please select sensor ID and attack type.");
+            setResultMessage("❗ Please select sensor ID and attack type.");
+            return;
         }
 
         let payload;
         try {
             payload = JSON.stringify(JSON.parse(attackData || "{}"));
         } catch (e) {
-            return alert("Invalid JSON in attack data.");
+            setResultMessage("❗ Invalid JSON in attack data.");
+            return;
         }
 
         fetch(`https://api.lx-gateway.tech/simulate/${selectedAttack}`, {
@@ -282,10 +297,18 @@ const DashboardMain = () => {
         })
             .then(res => res.json())
             .then(result => {
-                const status = result.blocked ? "🚫 Blocked" : "✅ Allowed";
-                alert(`Attack simulation result:\n${status}\n${result.message}`);
+                const isBlocked =
+                    result.blocked ||
+                    /🛑|high/i.test(result.severity) ||
+                    /blocked/i.test(result.message);
+
+                const status = isBlocked ? "🚫 Blocked" : "✅ Allowed";
+                setResultMessage(`${status} — ${result.message}`);
             })
-            .catch(err => console.error("Attack simulation failed", err));
+            .catch(err => {
+                console.error("Attack simulation failed", err);
+                setResultMessage("❌ Attack simulation failed.");
+            });
     };
 
     const handleAttackSelect = (val) => {
@@ -370,20 +393,33 @@ const DashboardMain = () => {
                 Simulate Attack
             </button>
 
+            {resultMessage && (
+                <div className="mt-4 text-sm font-medium text-blue-800 bg-blue-100 p-2 rounded">
+                    {resultMessage}
+                </div>
+            )}
+
             <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-2">Live Audit Trail</h3>
                 <div className="bg-gray-100 p-4 rounded max-h-60 overflow-auto text-sm">
                     {liveLogs.map((log, idx) => {
-                        const isBlocked = log.message?.toLowerCase().includes("block");
+                        const severity = log.severity || "Unknown";
+                        const isBlocked =
+                            log.blocked ||
+                            /🛑|high/i.test(severity) ||
+                            /blocked/i.test(log.message);
+
                         const status = isBlocked ? "🚫 Blocked" : "✅ Allowed";
-                        const severityClass = log.severity.includes("High") ? "text-red-600" : "text-green-600";
+                        const severityClass = severity.toLowerCase().includes("high") || severity.includes("🛑")
+                            ? "text-red-600"
+                            : "text-green-600";
 
                         return (
                             <div key={idx} className="mb-2 border-b pb-2">
-                                <p><strong>{log.timestamp}</strong> | {log.sensor_id}</p>
-                                <p>{(log.attack_type || "unknown").toUpperCase()}: {log.message}</p>
+                                <p><strong>{log.timestamp || "N/A"}</strong> | {log.sensor_id || "unknown"}</p>
+                                <p>{(log.attack_type || "unknown").toUpperCase()}: {log.message || "No message"}</p>
                                 <p className={`text-xs ${severityClass}`}>
-                                    Status: {status} — Severity: {log.severity}
+                                    Status: {status} — Severity: {severity}
                                 </p>
                             </div>
                         );
@@ -395,4 +431,3 @@ const DashboardMain = () => {
 };
 
 export default DashboardMain;
-

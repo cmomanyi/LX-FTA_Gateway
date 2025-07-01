@@ -1,5 +1,7 @@
 #
 from datetime import datetime
+
+import boto3
 from fastapi import APIRouter, HTTPException
 import random
 import asyncio
@@ -20,6 +22,10 @@ sensor_router = APIRouter()
 anomaly_logs = []
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+DYNAMODB_TABLE = "lx-fta-audit-logs"
+dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+table = dynamodb.Table(DYNAMODB_TABLE)
 
 TABLE_MAP = {
     "soil": "lx-fta-soil-data",
@@ -136,7 +142,7 @@ def update_sensor_id_cache():
 async def refresh_sensor_data():
     while True:
         latest_data_cache["soil"] = [generate_soil_sensor(i) for i in range(5)]
-        latest_data_cache["atmosphere"] = [generate_atmospheric_sensor(i) for i in range(5)]
+        latest_data_cache["atmospheric"] = [generate_atmospheric_sensor(i) for i in range(5)]
         latest_data_cache["water"] = [generate_water_sensor(i) for i in range(5)]
         latest_data_cache["plant"] = [generate_plant_sensor(i) for i in range(5)]
         latest_data_cache["threat"] = [generate_threat_sensor(i) for i in range(5)]
@@ -227,6 +233,24 @@ def fetch_logs():
         logger.exception("Failed to fetch logs")
         raise HTTPException(status_code=500, detail="Error fetching logs")
 
+@sensor_router.delete("/api/logs", tags=["Logs"])
+def delete_all_logs():
+    try:
+        # Scan all items (NOTE: expensive for large tables)
+        response = table.scan()
+        items = response.get("Items", [])
+
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.delete_item(
+                    Key={
+                        "sensor_id": item["sensor_id"],
+                        "timestamp": item["timestamp"]
+                    }
+                )
+        return {"message": f"{len(items)} logs deleted successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @sensor_router.get("/api/alerts")
 def get_latest_alerts():
