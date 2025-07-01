@@ -16,7 +16,7 @@ shap_router = APIRouter(prefix="/api/shap", tags=["SHAP"])
 # Sensor type → Pydantic Model
 model_map = {
     "soil": SoilData,
-    "atmosphere": AtmosphericData,
+    "atmospheric": AtmosphericData,
     "water": WaterData,
     "threat": ThreatData,
     "plant": PlantData
@@ -25,7 +25,7 @@ model_map = {
 # SHAP input feature map (manually exclude non-numeric or metadata fields)
 input_features = {
     "soil": ["temperature", "moisture", "ph", "nutrient_level", "battery_level"],
-    "atmosphere": ["air_temperature", "humidity", "co2", "wind_speed", "rainfall", "battery_level"],
+    "atmospheric": ["air_temperature", "humidity", "co2", "wind_speed", "rainfall", "battery_level"],
     "water": ["flow_rate", "water_level", "salinity", "ph", "turbidity", "battery_level"],
     "threat": ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts", "anomaly_score", "battery_level"],
     "plant": ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk", "stem_diameter", "battery_level"]

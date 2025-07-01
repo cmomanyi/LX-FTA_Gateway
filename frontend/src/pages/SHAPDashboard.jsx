@@ -105,7 +105,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const SENSOR_TYPES = ["soil", "atmosphere", "water", "plant", "threat"];
+const SENSOR_TYPES = ["soil", "atmospheric", "water", "plant", "threat"];
 
 const DUMMY_DATA = {
     soil: {

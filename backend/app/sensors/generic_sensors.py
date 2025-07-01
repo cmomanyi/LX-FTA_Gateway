@@ -17,6 +17,8 @@ from app.model.basic_sensor_model import (
     SoilData, AtmosphericData, WaterData, ThreatData, PlantData
 )
 from app.cache.sensor_cache import sensor_id_cache, latest_data_cache
+from statistics import mean, StatisticsError
+
 
 sensor_router = APIRouter()
 anomaly_logs = []
@@ -44,8 +46,8 @@ sensor_status = {
 }
 
 ALIASES = {
-    "atmospheric": "atmosphere",
-    "atm": "atmosphere"
+    "atmospheric": "atmospheric",
+    "atm": "atmospheric"
 }
 
 
@@ -202,10 +204,7 @@ def get_attack_types():
         raise HTTPException(status_code=500, detail="Failed to retrieve attack types")
 
 
-from fastapi import APIRouter, HTTPException
-from statistics import mean, StatisticsError
 
-sensor_router = APIRouter()
 
 
 @sensor_router.get("/api/averages")
@@ -230,8 +229,8 @@ def get_sensor_averages():
         return {
             "soil": compute_averages([d.dict() for d in latest_data_cache.get("soil", [])],
                                      ["temperature", "moisture", "ph", "nutrient_level"]),
-            "atmospheric": compute_averages([d.dict() for d in latest_data_cache.get("atmosphere", [])],
-                                           ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
+            "atmospheric": compute_averages([d.dict() for d in latest_data_cache.get("atmospheric", [])],
+                                            ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
             "water": compute_averages([d.dict() for d in latest_data_cache.get("water", [])],
                                       ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
             "plant": compute_averages([d.dict() for d in latest_data_cache.get("plant", [])],
@@ -253,26 +252,6 @@ def fetch_logs():
     except Exception as e:
         logger.exception("Failed to fetch logs")
         raise HTTPException(status_code=500, detail="Error fetching logs")
-
-
-@sensor_router.delete("/api/logs", tags=["Logs"])
-def delete_all_logs():
-    try:
-        # Scan all items (NOTE: expensive for large tables)
-        response = table.scan()
-        items = response.get("Items", [])
-
-        with table.batch_writer() as batch:
-            for item in items:
-                batch.delete_item(
-                    Key={
-                        "id": item["id"],
-                        "timestamp": item["timestamp"]
-                    }
-                )
-        return {"message": f"{len(items)} logs deleted successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @sensor_router.get("/api/alerts")
@@ -307,3 +286,23 @@ def validate_sensor_id(sensor_id: str):
     if sensor_id not in sensor_id_cache:
         raise HTTPException(status_code=400, detail="Invalid sensor ID")
     return True
+
+
+@sensor_router.delete("/api/logs", tags=["Logs"])
+def delete_all_logs():
+    try:
+        # Scan all items (NOTE: expensive for large tables)
+        response = table.scan()
+        items = response.get("Items", [])
+
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.delete_item(
+                    Key={
+                        "id": item["id"],
+                        "timestamp": item["timestamp"]
+                    }
+                )
+        return {"message": f"{len(items)} logs deleted successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
