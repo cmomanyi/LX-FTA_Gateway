@@ -1,18 +1,16 @@
-// Analytics.jsx
 import React, { useEffect, useState } from "react";
-import { Line } from "react-chartjs-2";
 import {
     Chart as ChartJS,
     CategoryScale,
     LinearScale,
-    PointElement,
-    LineElement,
+    BarElement,
     Title,
     Tooltip,
     Legend
 } from "chart.js";
+import { Bar } from "react-chartjs-2";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const Analytics = () => {
     const [logs, setLogs] = useState([]);
@@ -33,21 +31,40 @@ const Analytics = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const groupedBySensor = logs.reduce((acc, log) => {
-        const sensor = log.sensor_id || "unknown";
-        acc[sensor] = (acc[sensor] || 0) + 1;
+    // Count Injected and Detected per attack_type
+    const counts = logs.reduce((acc, log) => {
+        const type = log.attack_type || "Normal";
+        const isBlocked =
+            log.blocked === true ||
+            (log.severity && log.severity.toLowerCase().includes("high")) ||
+            (log.message && log.message.toLowerCase().includes("blocked"));
+
+        if (!acc[type]) {
+            acc[type] = { injected: 0, detected: 0 };
+        }
+
+        acc[type].injected += 1;
+        if (isBlocked) acc[type].detected += 1;
+
         return acc;
     }, {});
 
+    const labels = Object.keys(counts);
+    const injectedData = labels.map(type => counts[type].injected);
+    const detectedData = labels.map(type => counts[type].detected);
+
     const chartData = {
-        labels: Object.keys(groupedBySensor),
+        labels,
         datasets: [
             {
-                label: "Alerts by Sensor",
-                data: Object.values(groupedBySensor),
-                fill: false,
-                borderColor: "rgb(75, 192, 192)",
-                tension: 0.2
+                label: "Attacks Injected",
+                data: injectedData,
+                backgroundColor: "orange"
+            },
+            {
+                label: "Detected",
+                data: detectedData,
+                backgroundColor: "green"
             }
         ]
     };
@@ -55,18 +72,38 @@ const Analytics = () => {
     const chartOptions = {
         responsive: true,
         plugins: {
-            legend: { position: "top" },
-            title: { display: true, text: "Sensor Activity Overview" }
+            legend: {
+                position: "top"
+            },
+            title: {
+                display: true,
+                text: "Detected Threats per Attack Type in IoE Simulation"
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: "Number of Events"
+                },
+                beginAtZero: true
+            }
         }
     };
 
     return (
-        <div>
-            <h2 className="text-2xl font-bold mb-4">📈 Threat Analytics</h2>
+        <div className="dark bg-gray-900 text-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold mb-4">📊 Threat Analytics</h2>
             {logs.length === 0 ? (
-                <p className="text-gray-500 italic">Loading analytics data...</p>
+                <p className="text-gray-400 italic">Loading analytics data...</p>
             ) : (
-                <Line data={chartData} options={chartOptions} />
+                <Bar data={chartData} options={chartOptions} />
             )}
         </div>
     );

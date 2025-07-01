@@ -244,7 +244,7 @@ def delete_all_logs():
             for item in items:
                 batch.delete_item(
                     Key={
-                        "sensor_id": item["sensor_id"],
+                        "id": item["id"],
                         "timestamp": item["timestamp"]
                     }
                 )
