@@ -21,11 +21,10 @@ const sensorPrefixMap = {
 };
 
 const DashboardMain = () => {
-    const [sensorIDs, setSensorIDs] = useState([]);
     const [groupedSensors, setGroupedSensors] = useState({});
     const [sensorTypes, setSensorTypes] = useState([]);
-
     const [attackTypes, setAttackTypes] = useState([]);
+
     const [selectedType, setSelectedType] = useState("");
     const [selectedID, setSelectedID] = useState("");
     const [selectedAttack, setSelectedAttack] = useState("");
@@ -38,11 +37,8 @@ const DashboardMain = () => {
         fetch("https://api.lx-gateway.tech/api/sensor-ids")
             .then(res => res.json())
             .then(data => {
-                const allIDs = data.sensor_ids || [];
-                setSensorIDs(allIDs);
-
                 const groups = {};
-                allIDs.forEach(id => {
+                (data.sensor_ids || []).forEach(id => {
                     for (const [type, prefix] of Object.entries(sensorPrefixMap)) {
                         if (id.startsWith(prefix)) {
                             if (!groups[type]) groups[type] = [];
