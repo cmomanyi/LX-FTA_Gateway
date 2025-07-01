@@ -17,4 +17,4 @@ def log_attack(sensor_id: str, attack_type: str, message: str, severity: str = "
 
 
 def get_attack_logs() -> List[dict]:
-    return attack_logs[:500]  # limit return for performance
+    return attack_logs[:1500]  # limit return for performance
