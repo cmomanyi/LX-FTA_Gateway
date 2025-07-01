@@ -29,7 +29,7 @@ table = dynamodb.Table(DYNAMODB_TABLE)
 
 TABLE_MAP = {
     "soil": "lx-fta-soil-data",
-    "atmosphere": "lx-fta-atmospheric-data",
+    "atmospheric": "lx-fta-atmospheric-data",
     "water": "lx-fta-water-data",
     "plant": "lx-fta-plant-data",
     "threat": "lx-fta-threat-data"
@@ -37,7 +37,7 @@ TABLE_MAP = {
 
 sensor_status = {
     "soil": ["active", "sleeping", "compromised"],
-    "atmosphere": ["active", "sleeping", "compromised"],
+    "atmospheric": ["active", "sleeping", "compromised"],
     "water": ["active", "sleeping", "compromised"],
     "threat": ["active", "compromised", "alerting"],
     "plant": ["healthy", "wilting", "diseased"]
@@ -75,10 +75,10 @@ def generate_atmospheric_sensor(index: int) -> AtmosphericData:
         wind_speed=round(random.uniform(0, 15), 2),
         rainfall=round(random.uniform(0, 50), 2),
         battery_level=round(random.uniform(30, 100), 2),
-        status=random.choice(sensor_status["atmosphere"]),
+        status=random.choice(sensor_status["atmospheric"]),
         updated_at=datetime.utcnow().isoformat()
     )
-    put_item(TABLE_MAP["atmosphere"], item.dict())
+    put_item(TABLE_MAP["atmospheric"], item.dict())
     return item
 
 
@@ -154,6 +154,7 @@ async def refresh_sensor_data():
 async def startup_event():
     asyncio.create_task(refresh_sensor_data())
 
+
 @sensor_router.get("/api/type_senser")
 async def get_sensor_types():
     await cache_sensor_ids()
@@ -168,8 +169,6 @@ def list_sensor_ids():
     return {"sensor_ids": list(sensor_id_cache)}
 
 
-
-
 @sensor_router.get("/api/attack-types")
 def get_attack_types():
     try:
@@ -179,9 +178,11 @@ def get_attack_types():
                 {"type": "spoofing", "description": "Simulates ECC signature mismatch",
                  "sample": {"sensor_id": "sensor-x", "payload": "abc123", "ecc_signature": "invalid_hash"}},
                 {"type": "replay", "description": "Sends repeated nonce/timestamp values",
-                 "sample": {"sensor_id": "sensor-x", "timestamp": datetime.utcnow().isoformat(), "nonce": "nonce-123456"}},
+                 "sample": {"sensor_id": "sensor-x", "timestamp": datetime.utcnow().isoformat(),
+                            "nonce": "nonce-123456"}},
                 {"type": "firmware", "description": "Attempts to upload invalid firmware signature",
-                 "sample": {"sensor_id": "sensor-x", "firmware_version": "1.0.3", "firmware_signature": "invalid_signature"}},
+                 "sample": {"sensor_id": "sensor-x", "firmware_version": "1.0.3",
+                            "firmware_signature": "invalid_signature"}},
                 {"type": "ml_evasion", "description": "Triggers a drift detection anomaly",
                  "sample": {"sensor_id": "sensor-x", "values": [1.2, 2.3, 3.4]}},
                 {"type": "ddos", "description": "Sends many requests in a short timeframe",
@@ -201,28 +202,48 @@ def get_attack_types():
         raise HTTPException(status_code=500, detail="Failed to retrieve attack types")
 
 
+from fastapi import APIRouter, HTTPException
+from statistics import mean, StatisticsError
+
+sensor_router = APIRouter()
+
+
 @sensor_router.get("/api/averages")
 def get_sensor_averages():
     def compute_averages(data: list[dict], fields: list[str]):
-        return {
-            field: round(mean([d[field] for d in data if isinstance(d[field], (int, float))]), 2)
-            for field in fields
-        }
+        averages = {}
+        for field in fields:
+            try:
+                values = [d.get(field) for d in data if isinstance(d.get(field), (int, float))]
+                if not values:
+                    averages[field] = None
+                else:
+                    averages[field] = round(mean(values), 2)
+            except StatisticsError:
+                averages[field] = None
+            except Exception as e:
+                print(f"⚠️ Error computing field '{field}':", e)
+                averages[field] = None
+        return averages
 
-    return {
-        "soil": compute_averages([d.dict() for d in latest_data_cache["soil"]],
-                                 ["temperature", "moisture", "ph", "nutrient_level"]),
-        "atmosphere": compute_averages([d.dict() for d in latest_data_cache["atmosphere"]],
-                                       ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
-        "water": compute_averages([d.dict() for d in latest_data_cache["water"]],
-                                  ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
-        "plant": compute_averages([d.dict() for d in latest_data_cache["plant"]],
-                                  ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk",
-                                   "stem_diameter"]),
-        "threat": compute_averages([d.dict() for d in latest_data_cache["threat"]],
-                                   ["unauthorized_access", "jamming_signal", "tampering_attempts", "spoofing_attempts",
-                                    "anomaly_score"])
-    }
+    try:
+        return {
+            "soil": compute_averages([d.dict() for d in latest_data_cache.get("soil", [])],
+                                     ["temperature", "moisture", "ph", "nutrient_level"]),
+            "atmospheric": compute_averages([d.dict() for d in latest_data_cache.get("atmosphere", [])],
+                                           ["air_temperature", "humidity", "co2", "wind_speed", "rainfall"]),
+            "water": compute_averages([d.dict() for d in latest_data_cache.get("water", [])],
+                                      ["flow_rate", "water_level", "salinity", "ph", "turbidity"]),
+            "plant": compute_averages([d.dict() for d in latest_data_cache.get("plant", [])],
+                                      ["leaf_moisture", "chlorophyll_level", "growth_rate", "disease_risk",
+                                       "stem_diameter"]),
+            "threat": compute_averages([d.dict() for d in latest_data_cache.get("threat", [])],
+                                       ["unauthorized_access", "jamming_signal", "tampering_attempts",
+                                        "spoofing_attempts", "anomaly_score"])
+        }
+    except Exception as e:
+        print("❌ Failed to compute sensor averages:", e)
+        raise HTTPException(status_code=500, detail="Failed to compute sensor averages")
 
 
 @sensor_router.get("/api/logs")
@@ -232,6 +253,7 @@ def fetch_logs():
     except Exception as e:
         logger.exception("Failed to fetch logs")
         raise HTTPException(status_code=500, detail="Error fetching logs")
+
 
 @sensor_router.delete("/api/logs", tags=["Logs"])
 def delete_all_logs():
@@ -251,6 +273,7 @@ def delete_all_logs():
         return {"message": f"{len(items)} logs deleted successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @sensor_router.get("/api/alerts")
 def get_latest_alerts():
